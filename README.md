@@ -16,18 +16,24 @@
 > - Precisa de uma variável;
 > 
 > - String. 
-- Função - int
+- Int
 >*Cria uma variável do tipo inteiro*
 > 
 > int idade = 27;
 > 
 > int idade = 0x00001B; // *O dart interpreta hexadecimal.*
-- Função - double
+- Double
 > *Cria uma variável do tipo número real*
 > 
 > double altura = 1.86;
 > 
 > double distancia = 780e6; // *O dart interpreta exponencial.*
+- Booleans
+> Representado no dart pelo objeto **bool**
+> 
+> Utilizado para comparar se algo é verdadeiro ou falso (true / false)
+> 
+> bool compara = (idade == altura);
 
 
 
