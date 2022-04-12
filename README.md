@@ -43,7 +43,20 @@
 > String nome = 'Dário';
 > 
 > print('Eu me chamo $nome');
-
+- Type Casting
+> *Utilizada para converter uma variável de número em texto ou vice e versa.*
+> 
+>  - String para int Conversão: usamos ***int.parse()*** para converter uma string em inteiro se for compatível.
+>  
+>  - String para conversão double: usamos ***double.parse()*** para converter uma string em valor de ponto flutuante (como 2.2) se for compatível.
+>  
+>  - int para conversão de string: usamos ***toString()*** para converter um valor inteiro em um valor de string.
+>  
+>  - double para conversão de string: usamos ***toStringAsFixed()*** para converter um valor double em um valor de string.
+>  
+>  Exemplo: [Type Casting](https://github.com/dario-gms/Dart/blob/main/type_casting.dart)
+>  
+>  Fonte: Kumar Anurag, [Type Casting in Dart](https://medium.com/dart-school-by-kmranrg/chapter-3-type-casting-in-dart-76837475772a)
 
 
 
