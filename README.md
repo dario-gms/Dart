@@ -16,6 +16,13 @@
 > - Precisa de uma variável;
 > 
 > - String. 
+- Função - int
+>*Cria uma variável do tipo inteiro*
+> 
+> int idade = 27;
+> 
+> int idade = 0x00001B; // *O dart traduz hexadecimal.*
+
 
 
 
