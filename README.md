@@ -21,7 +21,13 @@
 > 
 > int idade = 27;
 > 
-> int idade = 0x00001B; // *O dart traduz hexadecimal.*
+> int idade = 0x00001B; // *O dart interpreta hexadecimal.*
+- Função - double
+> *Cria uma variável do tipo número real*
+> 
+> double altura = 1.86;
+> 
+> double distancia = 780e6; // *O dart interpreta exponencial.*
 
 
 
