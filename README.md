@@ -34,6 +34,12 @@
 > Utilizado para comparar se algo é verdadeiro ou falso (true / false)
 > 
 > bool compara = (idade == altura);
+- String
+> Utilizado para escrever palavras;
+> 
+> String nome = 'Dário';
+> 
+> print('Eu me chamo $nome');
 
 
 
