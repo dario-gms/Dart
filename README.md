@@ -60,9 +60,9 @@
 - List
 > Utilizado para criar uma lista(array)
 >
-> Necessário especificar o tipo de dado que vai ser inserido // List<type>
+> Necessário especificar o tipo de dado que vai ser inserido // List<>
 >
-> List<String> listanomes = ['Ricarth', 'Natália', 'Alex', 'Andriu', 'André'];
+> ![image](https://user-images.githubusercontent.com/86432208/163430763-6d66b62b-f91e-42f7-b459-e37f2be6b6ad.png)
 
 
 
