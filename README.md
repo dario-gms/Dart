@@ -73,6 +73,20 @@
 >  ![image](https://user-images.githubusercontent.com/86432208/163432417-20bfc6e5-3221-4b41-9975-a1ef7a2e63ea.png)
 >  
 >  Outros tipos - [Ver artigo](https://codeburst.io/top-10-array-utility-methods-you-should-know-dart-feb2648ee3a2) de Jermaine Oppong.
+- Const
+> Tipo de variável que é constante, inalterada.
+> 
+> const String nome = 'Dário Gomes';
+- Final
+> Funciona como uma constante, mas ela pode ser declarada vazia e a partir da primeira vez que ela receber um valor, permanecerá inalterada.
+> 
+> final String apelido;
+> 
+> apelido = 'darinho';
+- Var
+> Objeto variável, permite criar uma variável com qualquer atributo e quando receber um valor, o dart determinará automaticamente o tipo daquela variável. Recomenda-se somente utilizar quando você não sabe qual o tipo de valor que será recebido.
+> 
+> var altura = 1.80;
 
 
 
