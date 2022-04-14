@@ -108,6 +108,25 @@
     print('Você deu $i voltas no quarteirão');
   }
 ![image](https://user-images.githubusercontent.com/86432208/163456366-f58644de-61fc-4ce0-be2e-66aed7b2281e.png)
+- While
+> Estrutura de repetição. Utilizado para repetir um código enquanto a condição for satisfeita.
+> 
+> A condição é avaliada antes de processar o loop.
+>
+>  while(energia>0){
+    print('Mais uma repetição');
+    energia = energia -6;
+  }
+- Do While
+> Estrutura de repetição. Utilizada para repetir um código enquanto a condição for satisfeita.
+> 
+> A condição é avaliada depois de processar o loop.
+> 
+> do{
+    print("Mais uma repetição");
+    energia = energia -6;
+  } while(energia > 0);
+![image](https://user-images.githubusercontent.com/86432208/163458579-9aa58311-7458-4f11-8ff1-3bcbac01bfe3.png)
 
 
 
