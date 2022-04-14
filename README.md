@@ -57,6 +57,12 @@
 >  Exemplo: [Type Casting](https://github.com/dario-gms/Dart/blob/main/type_casting.dart)
 >  
 >  Fonte: Kumar Anurag, [Type Casting in Dart](https://medium.com/dart-school-by-kmranrg/chapter-3-type-casting-in-dart-76837475772a)
+- List
+> Utilizado para criar uma lista(array)
+>
+> Necessário especificar o tipo de dado que vai ser inserido // List<type>
+>
+> List<String> listanomes = ['Ricarth', 'Natália', 'Alex', 'Andriu', 'André'];
 
 
 
