@@ -87,6 +87,20 @@
 > Objeto variável, permite criar uma variável com qualquer atributo e quando receber um valor, o dart determinará automaticamente o tipo daquela variável. Recomenda-se somente utilizar quando você não sabe qual o tipo de valor que será recebido.
 > 
 > var altura = 1.80;
+- If
+> Estrutura condicional, utilizada para comparar algo ou realizar uma ação caso a condição seja satisfeita.
+> 
+> if(idade>=18){
+    maiorDeIdade = true;
+  }
+- Else
+> Estrutura condicional, utilizada em conjunto com o if, utilizada para realizar uma ação nos casos em que o if não satifaz a condição
+>
+>  else{
+    maiorDeIdade = false;
+  }
+  
+![image](https://user-images.githubusercontent.com/86432208/163449942-6ba1a731-8db1-4ad8-94e8-b33c231cc6fd.png)
 
 
 
