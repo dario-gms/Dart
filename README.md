@@ -131,7 +131,10 @@
 > O *break* e *continue* são comandos para controlar o fluxo do loop.
 > 
 > Mais sobre isso [neste artigo](https://www.geeksforgeeks.org/dart-loop-control-statements-break-and-continue/) do geekForGeeks. 
-
+- Switch e Case
+> O switch e case são novos formatos de loop que permitem um controle mais refinado e delicado de condições/estados distintos.
+> 
+> Mais [neste artigo](https://medium.com/jay-tillu/switch-case-in-dart-136793092e6e) do Jay Tillu.
 
 
 
