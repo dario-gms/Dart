@@ -63,6 +63,17 @@
 > Necessário especificar o tipo de dado que vai ser inserido // List<>
 >
 > ![image](https://user-images.githubusercontent.com/86432208/163430763-6d66b62b-f91e-42f7-b459-e37f2be6b6ad.png)
+> 
+> **Tipos**
+>  
+> String - Permite somente inserir dados do tipo texto:
+> 
+> Dynamic - Permite inserir todo tipo de dado:
+>
+>  ![image](https://user-images.githubusercontent.com/86432208/163432417-20bfc6e5-3221-4b41-9975-a1ef7a2e63ea.png)
+>  
+>  Outros tipos - [Ver artigo](https://codeburst.io/top-10-array-utility-methods-you-should-know-dart-feb2648ee3a2) de Jermaine Oppong.
+
 
 
 
