@@ -101,13 +101,16 @@
   }
   
 ![image](https://user-images.githubusercontent.com/86432208/163449942-6ba1a731-8db1-4ad8-94e8-b33c231cc6fd.png)
+
 - For
 > Estrutura de loop e repetição. Utilizado para repetir um determinado código ou ação, sem a necessidade de escrevê - lo várias vezes manualmente.
 > 
 > for(int i = 1; i < 5; i++){
     print('Você deu $i voltas no quarteirão');
   }
+  
 ![image](https://user-images.githubusercontent.com/86432208/163456366-f58644de-61fc-4ce0-be2e-66aed7b2281e.png)
+
 - While
 > Estrutura de repetição. Utilizado para repetir um código enquanto a condição for satisfeita.
 > 
