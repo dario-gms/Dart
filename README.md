@@ -129,7 +129,9 @@
     print("Mais uma repetição");
     energia = energia -6;
   } while(energia > 0);
+  
 ![image](https://user-images.githubusercontent.com/86432208/163458579-9aa58311-7458-4f11-8ff1-3bcbac01bfe3.png)
+
 - Break e Continue
 > O *break* e *continue* são comandos para controlar o fluxo do loop.
 > 
