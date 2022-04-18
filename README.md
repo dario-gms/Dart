@@ -135,6 +135,8 @@
 > O switch e case são novos formatos de loop que permitem um controle mais refinado e delicado de condições/estados distintos.
 > 
 > Mais [neste artigo](https://medium.com/jay-tillu/switch-case-in-dart-136793092e6e) do Jay Tillu.
+- Null Safety
+> [Este artigo](https://www.alura.com.br/artigos/flutter-null-safety) orienta como evitar erros que podem ocorrer por conta de um valor nulo.
 
 
 
