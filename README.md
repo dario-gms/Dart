@@ -3,6 +3,7 @@
 ## Projetos
 
 1. [Projeto inicial](https://github.com/dario-gms/Dart/blob/main/projeto_inicial.dart)
+2. [Segundo projeto](https://github.com/dario-gms/Dart/blob/main/dart_curso_dois/dart_curso_dois/bin/dart_curso_dois.dart)
 
 ## Primeiros passos
 
