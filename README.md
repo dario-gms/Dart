@@ -3,6 +3,7 @@
 ## Projetos
 
 1. [Projeto inicial](https://github.com/dario-gms/Dart/blob/main/projeto_inicial.dart)
+2. [Segundo projeto](https://github.com/dario-gms/Dart/blob/main/dart_curso_dois/dart_curso_dois/bin/dart_curso_dois.dart)
 
 ## Primeiros passos
 
@@ -158,6 +159,11 @@
 - `if/else`: Função que permite comparação e decisão de escolhas
 - `for`: Função que permite a criação de loops de repetição com limite definido. 
 - `while`: Função que permite a criação de llops de repetição sem limite definido.
+
+## Paradigmas
+> Os paradigmas de programação são, antes de tudo, um meio de qualificar a linguagem com base em sua funcionalidade. São atributos que expressam como uma linguagem funciona e também soluciona problemas.
+> 
+> Ver mais [neste artigo](https://blog.geekhunter.com.br/quais-sao-os-paradigmas-de-programacao/) sobre paradigmas de programação.
 
 
 
