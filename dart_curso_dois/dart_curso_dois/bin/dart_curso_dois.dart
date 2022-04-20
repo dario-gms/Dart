@@ -6,13 +6,21 @@ void main() {
   int diaDesdeColheita = 40;
   bool isMadura = funcEstaMadura(diaDesdeColheita);
 
-  monstrarMadura(nome, 10, cor: "laranja");
+  //monstrarMadura(nome, 10, cor: "laranja");
+  int quantosDias = funcQuantosDiasMadura(diaDesdeColheita);
+  if (quantosDias > 0) {
+    print("faltam $quantosDias dias para a fruta amadurecer.");
+  } else {
+    quantosDias = quantosDias * -1;
+    print("A fruta já está madura há $quantosDias dias");
+  }
 }
 
-// Posicionais Obrigatórios
-// Nomeados Opcionais
-// Parâmetros com "Padrão"
-// Modificador "required"
+int funcQuantosDiasMadura(int dias) {
+  int diasParaMadura = 30;
+  int quantosDiasFaltam = dias - diasParaMadura;
+  return quantosDiasFaltam;
+}
 
 monstrarMadura(String nome, int dias, {required String cor}) {
   if (dias >= 30) {
