@@ -6,8 +6,24 @@ void main() {
   int diaDesdeColheita = 40;
   bool isMadura = funcEstaMadura(diaDesdeColheita);
 
-  print(isMadura);
-  print(funcEstaMadura(50));
+  monstrarMadura(nome, 10, cor: "laranja");
+}
+
+// Posicionais Obrigatórios
+// Nomeados Opcionais
+// Parâmetros com "Padrão"
+// Modificador "required"
+
+monstrarMadura(String nome, int dias, {required String cor}) {
+  if (dias >= 30) {
+    print("A $nome está madura.");
+  } else {
+    print("A $nome não está madura.");
+  }
+
+  if (cor != null) {
+    print("A $nome é $cor");
+  }
 }
 
 bool funcEstaMadura(int dias) {
