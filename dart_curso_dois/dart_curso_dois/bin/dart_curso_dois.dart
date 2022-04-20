@@ -4,11 +4,16 @@ void main() {
   String cor = "Verde e Amarela";
   String sabor = "Doce e cítrica";
   int diaDesdeColheita = 40;
-  bool isMadura;
+  bool isMadura = funcEstaMadura(diaDesdeColheita);
 
-  if (diaDesdeColheita >= 30) {
-    isMadura = true;
+  print(isMadura);
+  print(funcEstaMadura(50));
+}
+
+bool funcEstaMadura(int dias) {
+  if (dias >= 30) {
+    return true;
   } else {
-    isMadura = false;
+    return false;
   }
 }
