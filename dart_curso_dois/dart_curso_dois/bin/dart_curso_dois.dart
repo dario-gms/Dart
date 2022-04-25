@@ -4,22 +4,24 @@ void main() {
   String cor = "Verde e Amarela";
   String sabor = "Doce e cítrica";
   int diaDesdeColheita = 40;
-  bool isMadura = funcEstaMadura(diaDesdeColheita);
-
-  //monstrarMadura(nome, 10, cor: "laranja");
-  int quantosDias = funcQuantosDiasMadura(diaDesdeColheita);
-  if (quantosDias > 0) {
-    print("faltam $quantosDias dias para a fruta amadurecer.");
-  } else {
-    quantosDias = quantosDias * -1;
-    print("A fruta já está madura há $quantosDias dias");
-  }
+  bool isMadura;
 }
 
-int funcQuantosDiasMadura(int dias) {
-  int diasParaMadura = 30;
-  int quantosDiasFaltam = dias - diasParaMadura;
-  return quantosDiasFaltam;
+class Fruta {
+  String nome;
+  double peso;
+  String cor;
+  String sabor;
+  int diasDesdeColheita;
+  bool? isMadura;
+}
+
+bool funcEstaMadura(int dias) {
+  if (dias >= 30) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 monstrarMadura(String nome, int dias, {required String cor}) {
@@ -34,10 +36,8 @@ monstrarMadura(String nome, int dias, {required String cor}) {
   }
 }
 
-bool funcEstaMadura(int dias) {
-  if (dias >= 30) {
-    return true;
-  } else {
-    return false;
-  }
+int funcQuantosDiasMadura(int dias) {
+  int diasParaMadura = 30;
+  int quantosDiasFaltam = dias - diasParaMadura;
+  return quantosDiasFaltam;
 }
