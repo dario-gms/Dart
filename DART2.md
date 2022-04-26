@@ -15,3 +15,9 @@
 #### Como configurar os Parâmetros de uma Função no Dart:
 
 - Existem os parâmetros **Posicionais Obrigatórios** e os **Nomeados Opcionais**, e podemos dar um **Valor Padrão** para parâmetros que poderiam ser nulos e, caso necessário, podemos exigir que um parâmetro seja entregue com o modificador required.
+
+### Classes
+
+#### O que é uma Classe:
+
+> Classes são os moldes que usamos para construir e representar coisas do mundo real. A partir desses moldes, podemos construir objetos específicos e com características semelhantes. Criar uma classe é uma forma modularizada e produtiva de escrever código. Nelas, conseguimos representar as características de objetos através das Propriedades e suas ações através dos métodos.
