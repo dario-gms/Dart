@@ -3,8 +3,17 @@ void main() {
   double peso = 100.2;
   String cor = "Verde e Amarela";
   String sabor = "Doce e cítrica";
-  int diaDesdeColheita = 40;
+  int diasDesdeColheita = 40;
   bool isMadura;
+
+  Fruta fruta01 = Fruta(nome, peso, cor, sabor, diasDesdeColheita);
+  Fruta fruta02 = Fruta("Uva", 40, "Roxa", "Doce", 20);
+
+  print(fruta01.cor);
+  print(fruta01);
+
+  print(fruta02.cor);
+  print(fruta02);
 }
 
 class Fruta {
@@ -14,6 +23,9 @@ class Fruta {
   String sabor;
   int diasDesdeColheita;
   bool? isMadura;
+
+  Fruta(this.nome, this.peso, this.cor, this.sabor, this.diasDesdeColheita,
+      {this.isMadura});
 }
 
 bool funcEstaMadura(int dias) {
