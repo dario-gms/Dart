@@ -39,47 +39,60 @@ int funcQuantosDiasMadura(int dias) {
   return quantosDiasFaltam;
 }
 
-class Fruta {
-  String nome;
-  double peso;
-  String cor;
+class Fruta extends Alimento {
   String sabor;
   int diasDesdeColheita;
   bool? isMadura;
 
-  Fruta(this.nome, this.peso, this.cor, this.sabor, this.diasDesdeColheita,
-      {this.isMadura});
+  Fruta(
+      String nome, double peso, String cor, this.sabor, this.diasDesdeColheita,
+      {this.isMadura})
+      : super(nome, peso, cor);
 
-  estaMadura(int diasParaMadura) {
+  void estaMadura(int diasParaMadura) {
     isMadura = diasDesdeColheita >= diasParaMadura;
     print(
         "A sua $nome foi colhida a $diasDesdeColheita dias, e precisa de $diasParaMadura dias para poder comer. Ela está madura? $isMadura.");
   }
+
+  void fazerSuco() {
+    print('Você fez um ótimo suco de $nome.');
+  }
 }
 
-class Alimento{
+class Alimento {
   String nome;
   double peso;
   String cor;
-  Alimento(this.nome, this. peso, this.cor);
+
+  Alimento(this.nome, this.peso, this.cor);
+
+  void printAlimento() {
+    print('Este(a) $nome pesa $peso gramas e é $cor.');
+  }
 }
 
-class Legumes {
-  String nome;
-  double peso;
-  String cor;
+class Legumes extends Alimento {
   bool isPrecisaCozinhar;
-  Legumes(this.nome, this.peso, this.cor, this.isPrecisaCozinhar);
+
+  Legumes(String nome, double peso, String cor, this.isPrecisaCozinhar)
+      : super(nome, peso, cor);
+
+  void cozinhar() {
+    if (isPrecisaCozinhar) {
+      print('Pronto, o $nome está cozinhando!');
+    } else {
+      print('Nem precisa cozinhar.');
+    }
+  }
 }
 
-class Citricas {
-  String nome;
-  double peso;
-  String cor;
+class Citricas extends Alimento {
   int diasDesdeColheita;
-  boll? isMadura;
+  bool? isMadura;
   double nivelAzedo;
 
-  Citricas(this.nome, this.peso, this.cor, this.diasDesdeColheita, this.nivelAzedo);
+  Citricas(String nome, double peso, String cor, this.diasDesdeColheita,
+      this.nivelAzedo)
+      : super(nome, peso, cor);
 }
-
