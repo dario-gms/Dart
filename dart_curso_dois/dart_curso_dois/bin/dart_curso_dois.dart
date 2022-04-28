@@ -86,7 +86,7 @@ class Alimento {
   }
 }
 
-class Legumes extends Alimento {
+class Legumes extends Alimento implements Bolo {
   bool isPrecisaCozinhar;
 
   Legumes(String nome, double peso, String cor, this.isPrecisaCozinhar)
@@ -98,6 +98,20 @@ class Legumes extends Alimento {
     } else {
       print('Nem precisa cozinhar.');
     }
+  }
+  @override
+  void assar() {
+    // Colocar para assar
+  }
+
+  @override
+  void fazerMassa() {
+    // Fazer uma papa com o legume
+  }
+
+  @override
+  void separarIngredientes() {
+    // Ver se o alimento está cozido ou cru
   }
 }
 
@@ -123,4 +137,13 @@ class Nozes extends Fruta {
   Nozes(String nome, double peso, String cor, String sabor,
       int diasDesdeColheita, this.porcentagemOleoNatural)
       : super(nome, peso, cor, sabor, diasDesdeColheita);
+}
+
+abstract class Bolo {
+  //separo os ingredites
+  void separarIngredientes();
+  //faço a massa
+  void fazerMassa();
+  //coloco para assar
+  void assar();
 }
