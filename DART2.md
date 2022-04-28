@@ -33,3 +33,15 @@
 #### Métodos: 
 
 > Métodos são como funções dentro de uma classe e determinam os comportamentos que os objetos que serão gerados por essa classe terão.
+
+#### O que é uma Herança:
+
+> A herança é a possibilidade de herdar dados e ações de outras classes já criadas, a fim de facilitar o entendimento e organização estrutural do nosso código.
+
+#### Como utilizar a Herança no Dart:
+
+> primeiro, devemos criar a classe que será herdada, em seguida, criamos a classe que vai receber a herança. Depois, usamos a palavra extends para associar as duas Classes. Por fim, utilizamos o super para pegar os dados herdados e utilizá-los na nossa Classe com herança.
+
+#### Métodos compartilhados:
+
+>  Classes que possuem algum nível de parentesco vertical (Mãe -> Filha) podem utilizar os métodos herdados. Porém, o inverso não é recíproco (Filha ->Mãe), nem mesmo o relacionamento horizontal (Irmã - Irmã) permite a utilização de métodos entre si.
