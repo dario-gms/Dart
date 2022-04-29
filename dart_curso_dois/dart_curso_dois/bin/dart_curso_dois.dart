@@ -139,3 +139,11 @@ class Nozes extends Fruta {
       : super(nome, peso, cor, sabor, diasDesdeColheita);
 }
 
+abstract class Bolo {
+  //separo os ingredites
+  void separarIngredientes();
+  //faço a massa
+  void fazerMassa();
+  //coloco para assar
+  void assar();
+}
