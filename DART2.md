@@ -45,3 +45,12 @@
 #### Métodos compartilhados:
 
 >  Classes que possuem algum nível de parentesco vertical (Mãe -> Filha) podem utilizar os métodos herdados. Porém, o inverso não é recíproco (Filha ->Mãe), nem mesmo o relacionamento horizontal (Irmã - Irmã) permite a utilização de métodos entre si.
+
+#### O que são classes abstratas:
+
+> As Classes abstratas (conhecidas em outras linguagens como Interface) são como contratos pré-definidos. Elas são muito usadas para dar um caminho definido para todas as classes que a implementam. Ao criar uma classe abstrata, fazemos os seus métodos sem nenhuma ação, pois dessa forma, as ações são definidas apenas por aqueles que implementam a classe abstrata criada.
+
+#### Polimorfismo:
+
+> O Polimorfismo nada mais é que a habilidade das nossas classes de alterar um método recebido por herança.
+
