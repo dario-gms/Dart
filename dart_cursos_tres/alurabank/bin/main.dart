@@ -1,15 +1,19 @@
 void main() {
-  ContaCorrente conta = ContaCorrente();
-  conta.titular = 'Dário';
+  ContaCorrente contadaAmanda = ContaCorrente();
+  contadaAmanda.titular = "Amanda";
+  contadaAmanda.agencia = 123;
+  contadaAmanda.conta = 1;
+  contadaAmanda.saldo = 0.0;
 
-  print(conta.titular);
+  ContaCorrente contadoTiago = ContaCorrente();
+  contadoTiago.titular = "Tiago";
+  contadoTiago.agencia = 123;
+  contadoTiago.conta = 2;
 }
 
 class ContaCorrente {
   String titular;
   int agencia;
   int conta;
-  double saldo;
-
-  
+  double saldo = 0.0;
 }
