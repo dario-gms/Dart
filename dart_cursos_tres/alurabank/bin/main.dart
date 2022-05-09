@@ -51,5 +51,4 @@ class ContaCorrente {
   void deposito(double valorDoDeposito) {
     this.saldo += valorDoDeposito;
   }
-  
 }
