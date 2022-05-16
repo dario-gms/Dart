@@ -24,6 +24,7 @@ void main() {
   print("Titular: ${contaDoTiago.titular.nome}");
   print("CPF: ${contaDoTiago.titular.cpf}");
   print("Profissão: ${contaDoTiago.titular.profissao}");
+  
 }
 
 
