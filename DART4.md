@@ -5830,6 +5830,8 @@ abstract class EventHandler<T extends DomainEvent> {
 }
 ```
 
+
+
 ### 14.3 Observer Pattern Reativo
 
 ```dart
@@ -6006,4 +6008,1390 @@ class ReactiveSubject<T> {
     }
     
     subscribe(ObserverCallback<T>(
-      onNext: (_) =>
+      onNext: (_) => tryEmit(),
+      onError: combinedSubject.error,
+    ));
+    
+    other.subscribe(ObserverCallback<U>(
+      onNext: (_) => tryEmit(),
+      onError: combinedSubject.error,
+    ));
+    
+    return combinedSubject;
+  }
+  
+  /// Dispose recursos
+  void dispose() {
+    _observers.clear();
+    _controller.close();
+  }
+}
+
+/// Interface Observer
+abstract class Observer<T> {
+  void onNext(T value);
+  void onError(Object error);
+  void onCompleted();
+}
+
+/// Implementação com callbacks
+class ObserverCallback<T> implements Observer<T> {
+  final void Function(T)? _onNext;
+  final void Function(Object)? _onError;
+  final void Function()? _onCompleted;
+  
+  ObserverCallback({
+    void Function(T)? onNext,
+    void Function(Object)? onError,
+    void Function()? onCompleted,
+  })  : _onNext = onNext,
+        _onError = onError,
+        _onCompleted = onCompleted;
+  
+  @override
+  void onNext(T value) => _onNext?.call(value);
+  
+  @override
+  void onError(Object error) => _onError?.call(error);
+  
+  @override
+  void onCompleted() => _onCompleted?.call();
+}
+
+/// State management reativo
+class ReactiveState<T> extends ReactiveSubject<T> {
+  ReactiveState(T initialValue) : super() {
+    next(initialValue);
+  }
+  
+  /// Atualiza estado com função
+  void update(T Function(T current) updater) {
+    if (_hasValue) {
+      next(updater(_currentValue as T));
+    }
+  }
+  
+  /// Reseta para valor inicial
+  void reset(T initialValue) {
+    next(initialValue);
+  }
+}
+
+/// Store de estado global
+class GlobalStateStore {
+  static final GlobalStateStore _instance = GlobalStateStore._internal();
+  factory GlobalStateStore() => _instance;
+  GlobalStateStore._internal();
+  
+  final Map<String, ReactiveSubject> _subjects = {};
+  
+  /// Obtém ou cria subject
+  ReactiveSubject<T> getSubject<T>(String key, [T? initialValue]) {
+    if (!_subjects.containsKey(key)) {
+      final subject = initialValue != null 
+          ? ReactiveState<T>(initialValue)
+          : ReactiveSubject<T>();
+      _subjects[key] = subject;
+    }
+    
+    return _subjects[key] as ReactiveSubject<T>;
+  }
+  
+  /// Remove subject
+  void removeSubject(String key) {
+    final subject = _subjects.remove(key);
+    subject?.dispose();
+  }
+  
+  /// Limpa todos os subjects
+  void clear() {
+    for (final subject in _subjects.values) {
+      subject.dispose();
+    }
+    _subjects.clear();
+  }
+  
+  /// Lista todas as chaves
+  List<String> get keys => _subjects.keys.toList();
+}
+```
+
+## 15. Performance e Otimizações Avançadas
+
+### 15.1 Memory Management e Object Pooling
+
+```dart
+// lib/src/performance/memory_management.dart
+import 'dart:collection';
+import 'dart:typed_data';
+
+/// Pool de objetos para reutilização
+class ObjectPool<T> {
+  final Queue<T> _available = Queue<T>();
+  final Set<T> _inUse = <T>{};
+  final T Function() _factory;
+  final void Function(T)? _reset;
+  final int _maxSize;
+  
+  ObjectPool({
+    required T Function() factory,
+    void Function(T)? reset,
+    int maxSize = 100,
+    int initialSize = 10,
+  })  : _factory = factory,
+        _reset = reset,
+        _maxSize = maxSize {
+    // Pré-popula o pool
+    for (int i = 0; i < initialSize; i++) {
+      _available.add(_factory());
+    }
+  }
+  
+  /// Obtém objeto do pool
+  T acquire() {
+    T object;
+    
+    if (_available.isNotEmpty) {
+      object = _available.removeFirst();
+    } else {
+      object = _factory();
+    }
+    
+    _inUse.add(object);
+    return object;
+  }
+  
+  /// Retorna objeto ao pool
+  void release(T object) {
+    if (!_inUse.contains(object)) {
+      return; // Objeto não pertence ao pool
+    }
+    
+    _inUse.remove(object);
+    
+    if (_available.length < _maxSize) {
+      _reset?.call(object);
+      _available.add(object);
+    }
+  }
+  
+  /// Estatísticas do pool
+  PoolStats get stats => PoolStats(
+    available: _available.length,
+    inUse: _inUse.length,
+    maxSize: _maxSize,
+  );
+  
+  /// Limpa o pool
+  void clear() {
+    _available.clear();
+    _inUse.clear();
+  }
+}
+
+class PoolStats {
+  final int available;
+  final int inUse;
+  final int maxSize;
+  
+  PoolStats({
+    required this.available,
+    required this.inUse,
+    required this.maxSize,
+  });
+  
+  double get utilizationPercentage => inUse / (available + inUse) * 100;
+  
+  @override
+  String toString() => 'Pool Stats: $inUse/$maxSize in use, $available available';
+}
+
+/// Pool especializado para StringBuffer
+class StringBufferPool {
+  static final ObjectPool<StringBuffer> _pool = ObjectPool<StringBuffer>(
+    factory: () => StringBuffer(),
+    reset: (buffer) => buffer.clear(),
+    maxSize: 50,
+  );
+  
+  static StringBuffer acquire() => _pool.acquire();
+  static void release(StringBuffer buffer) => _pool.release(buffer);
+  
+  /// Helper para usar com automatic cleanup
+  static String useBuffer(void Function(StringBuffer) operation) {
+    final buffer = acquire();
+    try {
+      operation(buffer);
+      return buffer.toString();
+    } finally {
+      release(buffer);
+    }
+  }
+}
+
+/// Manager de memória com monitoramento
+class MemoryManager {
+  static final Map<String, WeakReference<Object>> _trackedObjects = {};
+  static final List<MemorySnapshot> _snapshots = [];
+  static int _nextId = 0;
+  
+  /// Registra objeto para tracking
+  static String track<T extends Object>(T object, {String? label}) {
+    final id = 'obj_${_nextId++}';
+    _trackedObjects[id] = WeakReference(object);
+    return id;
+  }
+  
+  /// Remove tracking de objeto
+  static void untrack(String id) {
+    _trackedObjects.remove(id);
+  }
+  
+  /// Força garbage collection (apenas para debugging)
+  static void forceGC() {
+    // Nota: Dart não oferece controle direto sobre GC
+    // Este método existe para compatibilidade com patterns de testing
+    print('GC requested - Dart will handle automatically');
+  }
+  
+  /// Tira snapshot da memória
+  static MemorySnapshot takeSnapshot([String? label]) {
+    // Remove referências mortas
+    _trackedObjects.removeWhere((key, ref) => ref.target == null);
+    
+    final snapshot = MemorySnapshot(
+      timestamp: DateTime.now(),
+      label: label ?? 'Snapshot ${_snapshots.length + 1}',
+      trackedObjects: _trackedObjects.length,
+      aliveObjects: _trackedObjects.values.where((ref) => ref.target != null).length,
+    );
+    
+    _snapshots.add(snapshot);
+    return snapshot;
+  }
+  
+  /// Relatório de memória
+  static String getMemoryReport() {
+    final buffer = StringBufferPool.useBuffer((buffer) {
+      buffer.writeln('Memory Report');
+      buffer.writeln('=============');
+      buffer.writeln('Tracked Objects: ${_trackedObjects.length}');
+      buffer.writeln('Alive Objects: ${_trackedObjects.values.where((ref) => ref.target != null).length}');
+      buffer.writeln('Dead Objects: ${_trackedObjects.values.where((ref) => ref.target == null).length}');
+      
+      if (_snapshots.isNotEmpty) {
+        buffer.writeln('\nSnapshots:');
+        for (final snapshot in _snapshots.take(5)) { // Últimos 5
+          buffer.writeln('  ${snapshot.label}: ${snapshot.aliveObjects}/${snapshot.trackedObjects} objects');
+        }
+      }
+    });
+    
+    return buffer;
+  }
+  
+  /// Limpa dados de tracking
+  static void clear() {
+    _trackedObjects.clear();
+    _snapshots.clear();
+  }
+}
+
+class MemorySnapshot {
+  final DateTime timestamp;
+  final String label;
+  final int trackedObjects;
+  final int aliveObjects;
+  
+  MemorySnapshot({
+    required this.timestamp,
+    required this.label,
+    required this.trackedObjects,
+    required this.aliveObjects,
+  });
+  
+  int get deadObjects => trackedObjects - aliveObjects;
+  double get survivalRate => aliveObjects / trackedObjects * 100;
+}
+
+/// Cache com limite de memória
+class MemoryBoundedCache<K, V> {
+  final Map<K, _CacheEntry<V>> _cache = {};
+  final int _maxMemoryBytes;
+  final int Function(V) _sizeCalculator;
+  int _currentMemoryBytes = 0;
+  
+  MemoryBoundedCache({
+    required int maxMemoryBytes,
+    required int Function(V) sizeCalculator,
+  })  : _maxMemoryBytes = maxMemoryBytes,
+        _sizeCalculator = sizeCalculator;
+  
+  V? get(K key) {
+    final entry = _cache[key];
+    if (entry == null) return null;
+    
+    entry.lastAccessed = DateTime.now();
+    entry.hitCount++;
+    return entry.value;
+  }
+  
+  void put(K key, V value) {
+    final size = _sizeCalculator(value);
+    
+    // Remove entrada existente se houver
+    remove(key);
+    
+    // Libera memória se necessário
+    while (_currentMemoryBytes + size > _maxMemoryBytes && _cache.isNotEmpty) {
+      _evictLeastRecentlyUsed();
+    }
+    
+    if (_currentMemoryBytes + size <= _maxMemoryBytes) {
+      _cache[key] = _CacheEntry(value, size, DateTime.now());
+      _currentMemoryBytes += size;
+    }
+  }
+  
+  void remove(K key) {
+    final entry = _cache.remove(key);
+    if (entry != null) {
+      _currentMemoryBytes -= entry.size;
+    }
+  }
+  
+  void _evictLeastRecentlyUsed() {
+    if (_cache.isEmpty) return;
+    
+    K? lruKey;
+    DateTime? oldestAccess;
+    
+    for (final entry in _cache.entries) {
+      if (oldestAccess == null || entry.value.lastAccessed.isBefore(oldestAccess)) {
+        oldestAccess = entry.value.lastAccessed;
+        lruKey = entry.key;
+      }
+    }
+    
+    if (lruKey != null) {
+      remove(lruKey);
+    }
+  }
+  
+  CacheStats get stats => CacheStats(
+    entries: _cache.length,
+    memoryBytes: _currentMemoryBytes,
+    maxMemoryBytes: _maxMemoryBytes,
+    hitRatio: _calculateHitRatio(),
+  );
+  
+  double _calculateHitRatio() {
+    if (_cache.isEmpty) return 0.0;
+    
+    final totalHits = _cache.values.fold<int>(0, (sum, entry) => sum + entry.hitCount);
+    final totalAccesses = _cache.values.fold<int>(0, (sum, entry) => sum + entry.accessCount);
+    
+    return totalAccesses > 0 ? totalHits / totalAccesses : 0.0;
+  }
+  
+  void clear() {
+    _cache.clear();
+    _currentMemoryBytes = 0;
+  }
+}
+
+class _CacheEntry<V> {
+  final V value;
+  final int size;
+  DateTime lastAccessed;
+  int hitCount = 0;
+  int accessCount = 1;
+  
+  _CacheEntry(this.value, this.size, this.lastAccessed);
+}
+
+class CacheStats {
+  final int entries;
+  final int memoryBytes;
+  final int maxMemoryBytes;
+  final double hitRatio;
+  
+  CacheStats({
+    required this.entries,
+    required this.memoryBytes,
+    required this.maxMemoryBytes,
+    required this.hitRatio,
+  });
+  
+  double get memoryUtilization => memoryBytes / maxMemoryBytes * 100;
+  
+  @override
+  String toString() => 'Cache: $entries entries, ${memoryBytes}B/${maxMemoryBytes}B (${memoryUtilization.toStringAsFixed(1)}%), ${(hitRatio * 100).toStringAsFixed(1)}% hit rate';
+}
+```
+
+### 15.2 Async Performance e Concurrency
+
+```dart
+// lib/src/performance/async_performance.dart
+import 'dart:async';
+import 'dart:isolate';
+import 'dart:math' as math;
+
+/// Pool de workers para processamento paralelo
+class WorkerPool {
+  final List<_Worker> _workers = [];
+  final Queue<_WorkItem> _workQueue = Queue<_WorkItem>();
+  final int _maxWorkers;
+  bool _isShutdown = false;
+  
+  WorkerPool({int maxWorkers = 4}) : _maxWorkers = maxWorkers;
+  
+  /// Executa tarefa no pool
+  Future<R> execute<T, R>(
+    R Function(T) task,
+    T argument, {
+    Duration? timeout,
+  }) async {
+    if (_isShutdown) {
+      throw StateError('WorkerPool is shutdown');
+    }
+    
+    final completer = Completer<R>();
+    final workItem = _WorkItem<T, R>(task, argument, completer, timeout);
+    
+    _workQueue.add(workItem);
+    _processQueue();
+    
+    return completer.future;
+  }
+  
+  /// Executa múltiplas tarefas em paralelo
+  Future<List<R>> executeParallel<T, R>(
+    R Function(T) task,
+    List<T> arguments, {
+    Duration? timeout,
+  }) async {
+    final futures = arguments.map((arg) => execute(task, arg, timeout: timeout));
+    return Future.wait(futures);
+  }
+  
+  /// Executa tarefas em batch com limite de concorrência
+  Future<List<R>> executeBatch<T, R>(
+    R Function(T) task,
+    List<T> arguments, {
+    int? concurrency,
+    Duration? timeout,
+  }) async {
+    final maxConcurrency = concurrency ?? _maxWorkers;
+    final results = <R>[];
+    
+    for (int i = 0; i < arguments.length; i += maxConcurrency) {
+      final batch = arguments.sublist(
+        i, 
+        math.min(i + maxConcurrency, arguments.length),
+      );
+      
+      final batchResults = await executeParallel(task, batch, timeout: timeout);
+      results.addAll(batchResults);
+    }
+    
+    return results;
+  }
+  
+  void _processQueue() {
+    while (_workQueue.isNotEmpty && _getAvailableWorker() != null) {
+      final worker = _getAvailableWorker()!;
+      final workItem = _workQueue.removeFirst();
+      worker.execute(workItem);
+    }
+  }
+  
+  _Worker? _getAvailableWorker() {
+    // Procura worker disponível
+    for (final worker in _workers) {
+      if (!worker.isBusy) {
+        return worker;
+      }
+    }
+    
+    // Cria novo worker se possível
+    if (_workers.length < _maxWorkers) {
+      final worker = _Worker();
+      _workers.add(worker);
+      return worker;
+    }
+    
+    return null;
+  }
+  
+  /// Estatísticas do pool
+  PoolStatistics get statistics => PoolStatistics(
+    totalWorkers: _workers.length,
+    busyWorkers: _workers.where((w) => w.isBusy).length,
+    queuedTasks: _workQueue.length,
+  );
+  
+  /// Shutdown do pool
+  Future<void> shutdown({Duration? timeout}) async {
+    _isShutdown = true;
+    
+    final shutdownFutures = _workers.map((worker) => worker.shutdown());
+    
+    if (timeout != null) {
+      await Future.wait(shutdownFutures).timeout(timeout);
+    } else {
+      await Future.wait(shutdownFutures);
+    }
+    
+    _workers.clear();
+    _workQueue.clear();
+  }
+}
+
+class _Worker {
+  Isolate? _isolate;
+  SendPort? _sendPort;
+  bool _isBusy = false;
+  final Completer<void> _readyCompleter = Completer<void>();
+  
+  bool get isBusy => _isBusy;
+  
+  Future<void> get ready => _readyCompleter.future;
+  
+  _Worker() {
+    _initialize();
+  }
+  
+  Future<void> _initialize() async {
+    final receivePort = ReceivePort();
+    
+    _isolate = await Isolate.spawn(
+      _workerEntryPoint,
+      receivePort.sendPort,
+    );
+    
+    await for (final message in receivePort) {
+      if (message is SendPort) {
+        _sendPort = message;
+        _readyCompleter.complete();
+        break;
+      }
+    }
+  }
+  
+  static void _workerEntryPoint(SendPort mainSendPort) {
+    final receivePort = ReceivePort();
+    mainSendPort.send(receivePort.sendPort);
+    
+    receivePort.listen((message) {
+      if (message is Map && message.containsKey('task')) {
+        try {
+          // Executa tarefa (simplificado para exemplo)
+          final result = message['task'](message['argument']);
+          mainSendPort.send({'result': result, 'id': message['id']});
+        } catch (e) {
+          mainSendPort.send({'error': e.toString(), 'id': message['id']});
+        }
+      }
+    });
+  }
+  
+  Future<void> execute(_WorkItem workItem) async {
+    if (_sendPort == null) {
+      await ready;
+    }
+    
+    _isBusy = true;
+    
+    try {
+      // Implementação simplificada
+      // Em uma implementação real, seria necessário serializar as funções
+      final result = workItem.task(workItem.argument);
+      workItem.completer.complete(result);
+    } catch (e) {
+      workItem.completer.completeError(e);
+    } finally {
+      _isBusy = false;
+    }
+  }
+  
+  Future<void> shutdown() async {
+    _isolate?.kill();
+    _isolate = null;
+    _sendPort = null;
+  }
+}
+
+class _WorkItem<T, R> {
+  final R Function(T) task;
+  final T argument;
+  final Completer<R> completer;
+  final Duration? timeout;
+  
+  _WorkItem(this.task, this.argument, this.completer, this.timeout);
+}
+
+class PoolStatistics {
+  final int totalWorkers;
+  final int busyWorkers;
+  final int queuedTasks;
+  
+  PoolStatistics({
+    required this.totalWorkers,
+    required this.busyWorkers,
+    required this.queuedTasks,
+  });
+  
+  int get availableWorkers => totalWorkers - busyWorkers;
+  double get utilizationRate => totalWorkers > 0 ? busyWorkers / totalWorkers : 0.0;
+  
+  @override
+  String toString() => 'Pool: $busyWorkers/$totalWorkers workers busy, $queuedTasks queued';
+}
+
+/// Rate limiter para controle de throughput
+class RateLimiter {
+  final int _maxRequests;
+  final Duration _timeWindow;
+  final Queue<DateTime> _requests = Queue<DateTime>();
+  
+  RateLimiter({
+    required int maxRequests,
+    required Duration timeWindow,
+  })  : _maxRequests = maxRequests,
+        _timeWindow = timeWindow;
+  
+  /// Verifica se pode processar uma requisição
+  bool canProceed() {
+    final now = DateTime.now();
+    final windowStart = now.subtract(_timeWindow);
+    
+    // Remove requisições antigas
+    while (_requests.isNotEmpty && _requests.first.isBefore(windowStart)) {
+      _requests.removeFirst();
+    }
+    
+    return _requests.length < _maxRequests;
+  }
+  
+  /// Aguarda até poder processar
+  Future<void> waitForSlot() async {
+    while (!canProceed()) {
+      await Future.delayed(Duration(milliseconds: 10));
+    }
+    
+    _requests.add(DateTime.now());
+  }
+  
+  /// Executa função com rate limiting
+  Future<T> execute<T>(Future<T> Function() operation) async {
+    await waitForSlot();
+    return operation();
+  }
+  
+  /// Estatísticas do rate limiter
+  RateLimiterStats get stats {
+    final now = DateTime.now();
+    final windowStart = now.subtract(_timeWindow);
+    
+    final recentRequests = _requests.where((req) => req.isAfter(windowStart)).length;
+    
+    return RateLimiterStats(
+      currentRequests: recentRequests,
+      maxRequests: _maxRequests,
+      timeWindow: _timeWindow,
+    );
+  }
+}
+
+class RateLimiterStats {
+  final int currentRequests;
+  final int maxRequests;
+  final Duration timeWindow;
+  
+  RateLimiterStats({
+    required this.currentRequests,
+    required this.maxRequests,
+    required this.timeWindow,
+  });
+  
+  int get remainingRequests => math.max(0, maxRequests - currentRequests);
+  double get utilizationRate => currentRequests / maxRequests;
+  
+  @override
+  String toString() => 'Rate Limiter: $currentRequests/$maxRequests requests in ${timeWindow.inSeconds}s window';
+}
+```
+
+## 16. Futuro da Linguagem e Ecossistema
+
+### 16.1 Trends e Roadmap
+
+```dart
+// lib/src/future_features/experimental_features.dart
+// Demonstração de recursos experimentais e futuros do Dart
+
+/// Pattern Matching (Recurso futuro esperado)
+class PatternMatchingExample {
+  // Nota: Esta é uma aproximação de como pattern matching poderia funcionar
+  static String processValue(dynamic value) {
+    // Implementação atual usando switch
+    switch (value.runtimeType) {
+      case int:
+        return _handleInt(value as int);
+      case String:
+        return _handleString(value as String);
+      case List:
+        return _handleList(value as List);
+      default:
+        return 'Unknown type: ${value.runtimeType}';
+    }
+    
+    // Futuro pattern matching poderia ser algo como:
+    // return switch (value) {
+    //   int i when i > 0 => 'Positive: $i',
+    //   int i when i < 0 => 'Negative: $i',
+    //   int _ => 'Zero',
+    //   String s when s.isNotEmpty => 'String: $s',
+    //   List<int> numbers => 'Numbers: ${numbers.join(', ')}',
+    //   _ => 'Unknown'
+    // };
+  }
+  
+  static String _handleInt(int value) {
+    if (value > 0) return 'Positive: $value';
+    if (value < 0) return 'Negative: $value';
+    return 'Zero';
+  }
+  
+  static String _handleString(String value) {
+    return value.isNotEmpty ? 'String: $value' : 'Empty string';
+  }
+  
+  static String _handleList(List value) {
+    return 'List with ${value.length} items';
+  }
+}
+
+/// Sealed Classes (Recurso em desenvolvimento)
+abstract class Result<T, E> {
+  const Result();
+  
+  // Simulação de sealed classes usando factory constructors
+  factory Result.success(T value) = Success<T, E>;
+  factory Result.failure(E error) = Failure<T, E>;
+  
+  // Pattern matching manual
+  R when<R>({
+    required R Function(T value) success,
+    required R Function(E error) failure,
+  }) {
+    if (this is Success<T, E>) {
+      return success((this as Success<T, E>).value);
+    } else if (this is Failure<T, E>) {
+      return failure((this as Failure<T, E>).error);
+    }
+    throw StateError('Invalid Result state');
+  }
+  
+  // Helpers funcionais
+  Result<R, E> map<R>(R Function(T) mapper) {
+    return when(
+      success: (value) => Result<R, E>.success(mapper(value)),
+      failure: (error) => Result<R, E>.failure(error),
+    );
+  }
+  
+  Result<T, R> mapError<R>(R Function(E) mapper) {
+    return when(
+      success: (value) => Result<T, R>.success(value),
+      failure: (error) => Result<T, R>.failure(mapper(error)),
+    );
+  }
+}
+
+class Success<T, E> extends Result<T, E> {
+  final T value;
+  const Success(this.value);
+  
+  @override
+  String toString() => 'Success($value)';
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Success<T, E> && value == other.value;
+  
+  @override
+  int get hashCode => value.hashCode;
+}
+
+class Failure<T, E> extends Result<T, E> {
+  final E error;
+  const Failure(this.error);
+  
+  @override
+  String toString() => 'Failure($error)';
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Failure<T, E> && error == other.error;
+  
+  @override
+  int get hashCode => error.hashCode;
+}
+
+/// Union Types (Conceito futuro)
+class UnionType<A, B> {
+  final dynamic _value;
+  final bool _isA;
+  
+  UnionType.a(A value) : _value = value, _isA = true;
+  UnionType.b(B value) : _value = value, _isA = false;
+  
+  bool get isA => _isA;
+  bool get isB => !_isA;
+  
+  A get asA {
+    if (!_isA) throw StateError('Value is not of type A');
+    return _value as A;
+  }
+  
+  B get asB {
+    if (_isA) throw StateError('Value is not of type B');
+    return _value as B;
+  }
+  
+  R when<R>({
+    required R Function(A) onA,
+    required R Function(B) onB,
+  }) {
+    return _isA ? onA(_value as A) : onB(_value as B);
+  }
+}
+
+/// Macro System (Recurso experimental)
+class MacroExample {
+  // Demonstração de como macros poderiam funcionar
+  // @JsonSerializable() // Futuro macro annotation
+  static Map<String, dynamic> toJson(dynamic object) {
+    // Implementação manual que um macro poderia gerar automaticamente
+    final map = <String, dynamic>{};
+    
+    // Reflexão manual (macros fariam isso em compile-time)
+    if (object is User) {
+      map['name'] = object.name;
+      map['email'] = object.email;
+      map['age'] = object.age;
+    }
+    
+    return map;
+  }
+  
+  // @FromJson() // Futuro macro annotation
+  static T fromJson<T>(Map<String, dynamic> json) {
+    // Implementação que macro geraria automaticamente
+    if (T == User) {
+      return User(
+        name: json['name'] as String,
+        email: json['email'] as String,
+        age: json['age'] as int,
+      ) as T;
+    }
+    
+    throw ArgumentError('Unsupported type: $T');
+  }
+}
+
+class User {
+  final String name;
+  final String email;
+  final int age;
+  
+  User({required this.name, required this.email, required this.age});
+}
+
+/// Records (Recurso futuro confirmado)
+class RecordExample {
+  // Simulação de records usando classes
+  static Point createPoint(double x, double y) {
+    // Futuro: return (x, y);
+    return Point(x, y);
+  }
+  
+  static (String, int) getPersonInfo() {
+    // Simulação do futuro record type
+    // return ('João', 30);
+    throw UnimplementedError('Records not yet available');
+  }
+}
+
+class Point {
+  final double x;
+  final double y;
+  
+  Point(this.x, this.y);
+  
+  // Futuro record seria: (double x, double y)
+  @override
+  String toString() => '($x, $y)';
+}
+
+/// Algebraic Data Types
+abstract class Option<T> {
+  const Option();
+  
+  factory Option.some(T value) = Some<T>;
+  factory Option.none() = None<T>;
+  
+  bool get isSome => this is Some<T>;
+  bool get isNone => this is None<T>;
+  
+  T get value {
+    if (this is Some<T>) {
+      return (this as Some<T>).value;
+    }
+    throw StateError('Called value on None');
+  }
+  
+  T getOrElse(T defaultValue) {
+    return isSome ? value : defaultValue;
+  }
+  
+  Option<R> map<R>(R Function(T) mapper) {
+    return isSome ? Option.some(mapper(value)) : Option.none();
+  }
+  
+  Option<R> flatMap<R>(Option<R> Function(T) mapper) {
+    return isSome ? mapper(value) : Option.none();
+  }
+  
+  R fold<R>(R Function() onNone, R Function(T) onSome) {
+    return isSome ? onSome(value) : onNone();
+  }
+}
+
+class Some<T> extends Option<T> {
+  final T value;
+  const Some(this.value);
+  
+  @override
+  String toString() => 'Some($value)';
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Some<T> && value == other.value;
+  
+  @override
+  int get hashCode => value.hashCode;
+}
+
+class None<T> extends Option<T> {
+  const None();
+  
+  @override
+  String toString() => 'None';
+  
+  @override
+  bool operator ==(Object other) => other is None<T>;
+  
+  @override
+  int get hashCode => 0;
+}
+```
+
+### 16.2 Integration com Emerging Technologies
+
+```dart
+// lib/src/future_features/emerging_tech.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
+/// WebAssembly Integration (Futuro)
+class WebAssemblyIntegration {
+  // Simulação de como integração com WASM poderia funcionar
+  
+  /// Carrega e executa módulo WebAssembly
+  static Future<WasmModule> loadModule(String wasmPath) async {
+    // Implementação futura poderia ser:
+    // final bytes = await File(wasmPath).readAsBytes();
+    // return WasmModule.compile(bytes);
+    
+    throw UnimplementedError('WebAssembly integration not yet available');
+  }
+  
+  /// Exemplo de função WASM para cálculos intensivos
+  static Future<Float32List> processImageWasm(
+    Uint8List imageData,
+    int width,
+    int height,
+  ) async {
+    // Futuro: delegar para módulo WASM otimizado
+    // final module = await loadModule('assets/image_processor.wasm');
+    // return module.call('process_image', [imageData, width, height]);
+    
+    // Implementação Dart atual
+    return _processImageDart(imageData, width, height);
+  }
+  
+  static Float32List _processImageDart(Uint8List data, int width, int height) {
+    final result = Float32List(width * height);
+    
+    for (int i = 0; i < data.length; i += 4) {
+      final r = data[i];
+      final g = data[i + 1];
+      final b = data[i + 2];
+      final grayscale = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+      result[i ~/ 4] = grayscale;
+    }
+    
+    return result;
+  }
+}
+
+class WasmModule {
+  // Placeholder para futura implementação
+  final String moduleName;
+  
+  WasmModule(this.moduleName);
+  
+  T call<T>(String functionName, List<dynamic> args) {
+    throw UnimplementedError('WASM module execution');
+  }
+}
+
+/// Machine Learning Integration
+class MLIntegration {
+  /// TensorFlow Lite integration
+  static Future<MLModel> loadTFLiteModel(String modelPath) async {
+    // Futuro: integração direta com TensorFlow Lite
+    return MLModel(modelPath, ModelType.tensorflowLite);
+  }
+  
+  /// ONNX model support
+  static Future<MLModel> loadONNXModel(String modelPath) async {
+    // Futuro: suporte a modelos ONNX
+    return MLModel(modelPath, ModelType.onnx);
+  }
+  
+  /// Edge AI processing
+  static Future<List<double>> runInference(
+    MLModel model,
+    List<double> inputData,
+  ) async {
+    // Simulação de inferência
+    await Future.delayed(Duration(milliseconds: 50)); // Simula processamento
+    
+    // Processamento mock
+    return inputData.map((x) => x * 0.9 + 0.1).toList();
+  }
+  
+  /// Federated Learning support
+  static Future<void> updateModelWithFederatedLearning(
+    MLModel model,
+    List<TrainingData> localData,
+  ) async {
+    // Futuro: aprendizado federado
+    print('Updating model with ${localData.length} samples');
+  }
+}
+
+class MLModel {
+  final String path;
+  final ModelType type;
+  
+  MLModel(this.path, this.type);
+}
+
+enum ModelType { tensorflowLite, onnx, coreML }
+
+class TrainingData {
+  final List<double> input;
+  final List<double> expectedOutput;
+  
+  TrainingData(this.input, this.expectedOutput);
+}
+
+/// Quantum Computing Simulation
+class QuantumSimulation {
+  final int _qubits;
+  final List<Complex> _state;
+  
+  QuantumSimulation(int qubits) 
+    : _qubits = qubits,
+      _state = List.filled(1 << qubits, Complex.zero()) {
+    // Inicializa no estado |00...0⟩
+    _state[0] = Complex.one();
+  }
+  
+  /// Aplica porta Hadamard
+  void hadamard(int qubit) {
+    final newState = List.filled(_state.length, Complex.zero());
+    
+    for (int i = 0; i < _state.length; i++) {
+      final bit = (i >> qubit) & 1;
+      final flipped = i ^ (1 << qubit);
+      
+      if (bit == 0) {
+        newState[i] = newState[i] + _state[i] * Complex(1/math.sqrt(2), 0);
+        newState[flipped] = newState[flipped] + _state[i] * Complex(1/math.sqrt(2), 0);
+      } else {
+        newState[i] = newState[i] + _state[flipped] * Complex(1/math.sqrt(2), 0);
+        newState[flipped] = newState[flipped] - _state[flipped] * Complex(1/math.sqrt(2), 0);
+      }
+    }
+    
+    for (int i = 0; i < _state.length; i++) {
+      _state[i] = newState[i];
+    }
+  }
+  
+  /// Aplica porta CNOT
+  void cnot(int control, int target) {
+    for (int i = 0; i < _state.length; i++) {
+      final controlBit = (i >> control) & 1;
+      
+      if (controlBit == 1) {
+        final flipped = i ^ (1 << target);
+        final temp = _state[i];
+        _state[i] = _state[flipped];
+        _state[flipped] = temp;
+      }
+    }
+  }
+  
+  /// Mede um qubit
+  int measure(int qubit) {
+    final random = math.Random();
+    final prob0 = _getProbability0(qubit);
+    
+    final result = random.nextDouble() < prob0 ? 0 : 1;
+    _collapseState(qubit, result);
+    
+    return result;
+  }
+  
+  double _getProbability0(int qubit) {
+    double prob = 0.0;
+    
+    for (int i = 0; i < _state.length; i++) {
+      if (((i >> qubit) & 1) == 0) {
+        prob += _state[i].magnitudeSquared;
+      }
+    }
+    
+    return prob;
+  }
+  
+  void _collapseState(int qubit, int result) {
+    double norm = 0.0;
+    
+    for (int i = 0; i < _state.length; i++) {
+      if (((i >> qubit) & 1) == result) {
+        norm += _state[i].magnitudeSquared;
+      } else {
+        _state[i] = Complex.zero();
+      }
+    }
+    
+    final normFactor = 1.0 / math.sqrt(norm);
+    for (int i = 0; i < _state.length; i++) {
+      _state[i] = _state[i] * Complex(normFactor, 0);
+    }
+  }
+  
+  /// Obtém probabilidades de todos os estados
+  Map<String, double> getProbabilities() {
+    final probs = <String, double>{};
+    
+    for (int i = 0; i < _state.length; i++) {
+      final binary = i.toRadixString(2).padLeft(_qubits, '0');
+      probs[binary] = _state[i].magnitudeSquared;
+    }
+    
+    return probs;
+  }
+}
+
+class Complex {
+  final double real;
+  final double imaginary;
+  
+  const Complex(this.real, this.imaginary);
+  
+  static const Complex zero = Complex(0, 0);
+  static const Complex one = Complex(1, 0);
+  static const Complex i = Complex(0, 1);
+  
+  Complex operator +(Complex other) {
+    return Complex(real + other.real, imaginary + other.imaginary);
+  }
+  
+  Complex operator -(Complex other) {
+    return Complex(real - other.real, imaginary - other.imaginary);
+  }
+  
+  Complex operator *(Complex other) {
+    return Complex(
+      real * other.real - imaginary * other.imaginary,
+      real * other.imaginary + imaginary * other.real,
+    );
+  }
+  
+  double get magnitude => math.sqrt(real * real + imaginary * imaginary);
+  double get magnitudeSquared => real * real + imaginary * imaginary;
+  
+  @override
+  String toString() {
+    if (imaginary == 0) return real.toString();
+    if (real == 0) return '${imaginary}i';
+    final sign = imaginary >= 0 ? '+' : '';
+    return '$real${sign}${imaginary}i';
+  }
+}
+
+/// Blockchain Integration
+class BlockchainIntegration {
+  /// Smart contract interaction
+  static Future<String> deployContract(
+    String contractCode,
+    Map<String, dynamic> parameters,
+  ) async {
+    // Futuro: integração com blockchains
+    final contractHash = _hashContract(contractCode, parameters);
+    
+    await Future.delayed(Duration(seconds: 2)); // Simula deploy
+    
+    return contractHash;
+  }
+  
+  /// Execute contract function
+  static Future<dynamic> executeContractFunction(
+    String contractAddress,
+    String functionName,
+    List<dynamic> args,
+  ) async {
+    // Simulação de execução
+    print('Executing $functionName on $contractAddress with args: $args');
+    
+    return {'status': 'success', 'result': 'mock_result'};
+  }
+  
+  /// NFT minting
+  static Future<String> mintNFT(
+    String metadata,
+    String ownerAddress,
+  ) async {
+    final tokenId = DateTime.now().millisecondsSinceEpoch.toString();
+    
+    // Simulação de mint
+    print('Minting NFT $tokenId for $ownerAddress');
+    
+    return tokenId;
+  }
+  
+  static String _hashContract(String code, Map<String, dynamic> params) {
+    final combined = code + jsonEncode(params);
+    return combined.hashCode.toRadixString(16);
+  }
+}
+
+/// IoT Integration
+class IoTIntegration {
+  static final Map<String, IoTDevice> _devices = {};
+  
+  /// Descoberta de dispositivos
+  static Future<List<IoTDevice>> discoverDevices() async {
+    await Future.delayed(Duration(seconds: 1));
+    
+    return [
+      IoTDevice('temp_sensor_01', 'Temperature Sensor', DeviceType.sensor),
+      IoTDevice('smart_bulb_02', 'Smart Bulb', DeviceType.actuator),
+      IoTDevice('camera_03', 'Security Camera', DeviceType.sensor),
+    ];
+  }
+  
+  /// Conecta a dispositivo
+  static Future<void> connectDevice(String deviceId) async {
+    final device = _devices[deviceId];
+    if (device != null) {
+      device._isConnected = true;
+      print('Connected to ${device.name}');
+    }
+  }
+  
+  /// Lê dados do sensor
+  static Future<SensorData> readSensorData(String deviceId) async {
+    final device = _devices[deviceId];
+    if (device?.type != DeviceType.sensor) {
+      throw ArgumentError('Device is not a sensor');
+    }
+    
+    // Simula leitura
+    final random = math.Random();
+    return SensorData(
+      deviceId: deviceId,
+      timestamp: DateTime.now(),
+      value: 20 + random.nextDouble() * 10, // Temperatura 20-30°C
+      unit: '°C',
+    );
+  }
+  
+  /// Controla atuador
+  static Future<void> controlActuator(
+    String deviceId,
+    Map<String, dynamic> commands,
+  ) async {
+    final device = _devices[deviceId];
+    if (device?.type != DeviceType.actuator) {
+      throw ArgumentError('Device is not an actuator');
+    }
+    
+    print('Controlling ${device!.name} with commands: $commands');
+  }
+  
+  /// Stream de dados em tempo real
+  static Stream<SensorData> streamSensorData(String deviceId) async* {
+    while (true) {
+      yield await readSensorData(deviceId);
+      await Future.delayed(Duration(seconds: 5));
+    }
+  }
+}
+
+class IoTDevice {
+  final String id;
+  final String name;
+  final DeviceType type;
+  bool _isConnected = false;
+  
+  IoTDevice(this.id, this.name, this.type);
+  
+  bool get isConnected => _isConnected;
+}
+
+enum DeviceType { sensor, actuator, hybrid }
+
+class SensorData {
+  final String deviceId;
+  final DateTime timestamp;
+  final double value;
+  final String unit;
+  
+  SensorData({
+    required this.deviceId,
+    required this.timestamp,
+    required this.value,
+    required this.unit,
+  });
+  
+  @override
+  String toString() => '$deviceId: $value$unit at $timestamp';
+}
+```
+
+## 17. Conclusão 
