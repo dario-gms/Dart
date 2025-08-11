@@ -4023,3 +4023,1987 @@ void main() {
   });
 }
 ```
+## 11.3 Documentação e API Reference
+
+### Gerando Documentação Automatizada
+
+Dart oferece documentação automatizada através do `dart doc`, que gera documentação HTML baseada em comentários de documentação:
+
+```dart
+// lib/documented_example.dart
+/// Uma classe que demonstra documentação completa em Dart.
+/// 
+/// Esta classe serve como exemplo de como escrever documentação
+/// eficaz usando comentários de documentação do Dart.
+/// 
+/// Example:
+/// ```dart
+/// var calculator = DocumentedCalculator('Main Calculator');
+/// var result = calculator.add(5, 3);
+/// print('Result: $result'); // Result: 8
+/// ```
+class DocumentedCalculator {
+  /// O nome identificador desta calculadora.
+  final String name;
+  
+  /// Lista histórica de operações realizadas.
+  final List<String> _history = [];
+  
+  /// Cria uma nova instância de [DocumentedCalculator].
+  /// 
+  /// O parâmetro [name] é obrigatório e não pode ser vazio.
+  /// 
+  /// Throws:
+  /// * [ArgumentError] se [name] for vazio ou nulo.
+  DocumentedCalculator(this.name) {
+    if (name.isEmpty) {
+      throw ArgumentError('Name cannot be empty');
+    }
+  }
+  
+  /// Realiza adição de dois números.
+  /// 
+  /// Retorna a soma de [a] e [b] e registra a operação no histórico.
+  /// 
+  /// Example:
+  /// ```dart
+  /// var result = calculator.add(10, 5); // Returns 15
+  /// ```
+  /// 
+  /// See also:
+  /// * [subtract] para operação de subtração
+  /// * [multiply] para operação de multiplicação
+  double add(double a, double b) {
+    final result = a + b;
+    _history.add('$a + $b = $result');
+    return result;
+  }
+  
+  /// Realiza subtração de dois números.
+  /// 
+  /// Retorna [a] - [b] e registra a operação no histórico.
+  double subtract(double a, double b) {
+    final result = a - b;
+    _history.add('$a - $b = $result');
+    return result;
+  }
+  
+  /// Realiza multiplicação de dois números.
+  /// 
+  /// Retorna [a] * [b] e registra a operação no histórico.
+  double multiply(double a, double b) {
+    final result = a * b;
+    _history.add('$a * $b = $result');
+    return result;
+  }
+  
+  /// Realiza divisão de dois números.
+  /// 
+  /// Retorna [a] / [b] e registra a operação no histórico.
+  /// 
+  /// Throws:
+  /// * [ArgumentError] se [b] for zero.
+  double divide(double a, double b) {
+    if (b == 0) {
+      throw ArgumentError('Cannot divide by zero');
+    }
+    final result = a / b;
+    _history.add('$a / $b = $result');
+    return result;
+  }
+  
+  /// Retorna uma cópia imutável do histórico de operações.
+  /// 
+  /// O histórico é mantido na ordem cronológica das operações.
+  List<String> get history => List.unmodifiable(_history);
+  
+  /// Limpa o histórico de operações.
+  /// 
+  /// Esta operação é irreversível.
+  void clearHistory() {
+    _history.clear();
+  }
+}
+
+/// Extensão que adiciona funcionalidades matemáticas avançadas.
+/// 
+/// Demonstra como documentar extensions de forma eficaz.
+extension AdvancedMath on DocumentedCalculator {
+  /// Calcula a potência de [base] elevado a [exponent].
+  /// 
+  /// Example:
+  /// ```dart
+  /// var result = calculator.power(2, 3); // Returns 8.0
+  /// ```
+  double power(double base, double exponent) {
+    final result = math.pow(base, exponent).toDouble();
+    _history.add('$base ^ $exponent = $result');
+    return result;
+  }
+  
+  /// Calcula a raiz quadrada de [number].
+  /// 
+  /// Throws:
+  /// * [ArgumentError] se [number] for negativo.
+  double sqrt(double number) {
+    if (number < 0) {
+      throw ArgumentError('Cannot calculate square root of negative number');
+    }
+    final result = math.sqrt(number);
+    _history.add('√$number = $result');
+    return result;
+  }
+}
+```
+
+### Configuração para Documentação
+
+```yaml
+# pubspec.yaml
+name: my_awesome_package
+description: A package demonstrating advanced Dart concepts and documentation.
+version: 1.0.0
+
+environment:
+  sdk: '>=2.17.0 <4.0.0'
+
+dev_dependencies:
+  test: ^1.21.0
+  lints: ^2.0.0
+
+# Configuração específica para documentação
+executables:
+  my_tool: my_tool
+
+documentation:
+  # Configurações específicas podem ser adicionadas aqui
+```
+
+```dart
+// tool/generate_docs.dart
+import 'dart:io';
+
+/// Script para gerar documentação customizada
+void main(List<String> args) async {
+  print('Generating documentation...');
+  
+  // Executa dart doc com configurações específicas
+  var result = await Process.run('dart', [
+    'doc',
+    '--output', 'doc/api',
+    '--show-progress',
+    '--validate-links',
+  ]);
+  
+  if (result.exitCode == 0) {
+    print('Documentation generated successfully!');
+    print('Output: ${result.stdout}');
+  } else {
+    print('Error generating documentation:');
+    print('Error: ${result.stderr}');
+    exit(1);
+  }
+}
+```
+
+## 11.4 Versionamento e Semantic Versioning
+
+### Estratégia de Versionamento
+
+```dart
+// lib/src/version.dart
+/// Informações de versão do package
+class PackageVersion {
+  /// Versão principal (breaking changes)
+  static const int major = 1;
+  
+  /// Versão menor (novas funcionalidades)
+  static const int minor = 2;
+  
+  /// Versão de patch (bug fixes)
+  static const int patch = 3;
+  
+  /// Versão completa como string
+  static const String version = '$major.$minor.$patch';
+  
+  /// Informações de build (opcional)
+  static const String buildInfo = '+build.2024.01.15';
+  
+  /// Versão completa com build info
+  static const String fullVersion = '$version$buildInfo';
+  
+  /// Verifica se uma versão é compatível
+  static bool isCompatible(String requiredVersion) {
+    // Implementação de verificação de compatibilidade
+    final required = _parseVersion(requiredVersion);
+    final current = _parseVersion(version);
+    
+    // Compatível se major é igual e minor/patch são >= requerido
+    return current.major == required.major &&
+           (current.minor > required.minor || 
+            (current.minor == required.minor && current.patch >= required.patch));
+  }
+  
+  static _VersionInfo _parseVersion(String version) {
+    final parts = version.split('.');
+    return _VersionInfo(
+      major: int.parse(parts[0]),
+      minor: int.parse(parts[1]),
+      patch: int.parse(parts[2]),
+    );
+  }
+}
+
+class _VersionInfo {
+  final int major;
+  final int minor;
+  final int patch;
+  
+  _VersionInfo({
+    required this.major,
+    required this.minor,
+    required this.patch,
+  });
+}
+```
+
+### Migration Guide Generator
+
+```dart
+// tool/migration_guide.dart
+import 'dart:io';
+import 'dart:convert';
+
+/// Gerador de guia de migração automático
+class MigrationGuideGenerator {
+  final String fromVersion;
+  final String toVersion;
+  final List<BreakingChange> breakingChanges;
+  
+  MigrationGuideGenerator({
+    required this.fromVersion,
+    required this.toVersion,
+    required this.breakingChanges,
+  });
+  
+  /// Gera o guia de migração em Markdown
+  String generateGuide() {
+    final buffer = StringBuffer();
+    
+    buffer.writeln('# Migration Guide: $fromVersion → $toVersion\n');
+    buffer.writeln('This guide helps you migrate your code from version $fromVersion to $toVersion.\n');
+    
+    if (breakingChanges.isNotEmpty) {
+      buffer.writeln('## Breaking Changes\n');
+      
+      for (var change in breakingChanges) {
+        buffer.writeln('### ${change.title}\n');
+        buffer.writeln('${change.description}\n');
+        
+        if (change.before.isNotEmpty) {
+          buffer.writeln('**Before:**');
+          buffer.writeln('```dart');
+          buffer.writeln(change.before);
+          buffer.writeln('```\n');
+        }
+        
+        if (change.after.isNotEmpty) {
+          buffer.writeln('**After:**');
+          buffer.writeln('```dart');
+          buffer.writeln(change.after);
+          buffer.writeln('```\n');
+        }
+        
+        if (change.migrationSteps.isNotEmpty) {
+          buffer.writeln('**Migration Steps:**');
+          for (int i = 0; i < change.migrationSteps.length; i++) {
+            buffer.writeln('${i + 1}. ${change.migrationSteps[i]}');
+          }
+          buffer.writeln();
+        }
+      }
+    }
+    
+    return buffer.toString();
+  }
+  
+  /// Salva o guia em arquivo
+  Future<void> saveToFile(String path) async {
+    final file = File(path);
+    await file.writeAsString(generateGuide());
+  }
+}
+
+class BreakingChange {
+  final String title;
+  final String description;
+  final String before;
+  final String after;
+  final List<String> migrationSteps;
+  
+  BreakingChange({
+    required this.title,
+    required this.description,
+    this.before = '',
+    this.after = '',
+    this.migrationSteps = const [],
+  });
+}
+
+void main() async {
+  final generator = MigrationGuideGenerator(
+    fromVersion: '1.0.0',
+    toVersion: '2.0.0',
+    breakingChanges: [
+      BreakingChange(
+        title: 'AwesomeClass Constructor Change',
+        description: 'The constructor now requires a non-empty value parameter.',
+        before: '''
+var awesome = AwesomeClass(''); // This was allowed
+''',
+        after: '''
+var awesome = AwesomeClass('valid_value'); // Now required
+''',
+        migrationSteps: [
+          'Check all AwesomeClass instantiations',
+          'Ensure value parameter is not empty',
+          'Update tests accordingly',
+        ],
+      ),
+    ],
+  );
+  
+  await generator.saveToFile('MIGRATION.md');
+  print('Migration guide generated successfully!');
+}
+```
+
+## 12. Ferramentas de Desenvolvimento Avançadas
+
+### 12.1 Dart Analyzer e Linting Avançado
+
+```dart
+// analysis_options.yaml
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - build/**
+  
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
+  
+  errors:
+    # Transformar warnings em errors para CI/CD
+    unused_import: error
+    unused_local_variable: error
+    dead_code: error
+    
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    # Regras de estilo
+    - always_declare_return_types
+    - always_specify_types
+    - avoid_redundant_argument_values
+    - prefer_const_constructors
+    - prefer_const_literals_to_create_immutables
+    
+    # Regras de performance
+    - avoid_slow_async_io
+    - close_sinks
+    - cancel_subscriptions
+    
+    # Regras de segurança
+    - avoid_web_libraries_in_flutter
+    - secure_pubspec_urls
+    
+    # Regras customizadas específicas do projeto
+    - file_names
+    - library_names
+    - non_constant_identifier_names
+```
+
+### Custom Lint Rules
+
+```dart
+// tool/custom_lints.dart
+import 'package:analyzer/dart/analysis/results.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
+
+/// Lint customizado para verificar padrões específicos do projeto
+class CustomLintRules extends SimpleAstVisitor<void> {
+  final List<LintIssue> issues = [];
+  
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) {
+    // Regra: métodos públicos devem ter documentação
+    if (node.documentationComment == null && !node.name.lexeme.startsWith('_')) {
+      issues.add(LintIssue(
+        message: 'Public method ${node.name.lexeme} should have documentation',
+        line: node.offset,
+        severity: LintSeverity.warning,
+      ));
+    }
+    
+    // Regra: métodos async devem ter tratamento de erro
+    if (node.body is BlockFunctionBody) {
+      final body = node.body as BlockFunctionBody;
+      if (_isAsyncMethod(node) && !_hasTryBlock(body)) {
+        issues.add(LintIssue(
+          message: 'Async method ${node.name.lexeme} should handle exceptions',
+          line: node.offset,
+          severity: LintSeverity.info,
+        ));
+      }
+    }
+    
+    super.visitMethodDeclaration(node);
+  }
+  
+  @override
+  void visitClassDeclaration(ClassDeclaration node) {
+    // Regra: classes devem seguir padrão de nomenclatura
+    if (!_isPascalCase(node.name.lexeme)) {
+      issues.add(LintIssue(
+        message: 'Class name ${node.name.lexeme} should use PascalCase',
+        line: node.offset,
+        severity: LintSeverity.error,
+      ));
+    }
+    
+    super.visitClassDeclaration(node);
+  }
+  
+  bool _isAsyncMethod(MethodDeclaration method) {
+    return method.returnType?.toString().contains('Future') == true ||
+           method.body.keyword?.lexeme == 'async';
+  }
+  
+  bool _hasTryBlock(BlockFunctionBody body) {
+    return body.block.statements.any((stmt) => stmt is TryStatement);
+  }
+  
+  bool _isPascalCase(String name) {
+    return RegExp(r'^[A-Z][a-zA-Z0-9]*$').hasMatch(name);
+  }
+}
+
+class LintIssue {
+  final String message;
+  final int line;
+  final LintSeverity severity;
+  
+  LintIssue({
+    required this.message,
+    required this.line,
+    required this.severity,
+  });
+  
+  @override
+  String toString() => '${severity.name.toUpperCase()}: $message (line: $line)';
+}
+
+enum LintSeverity { error, warning, info }
+```
+
+### 12.2 Debugging Avançado e Profiling
+
+```dart
+// lib/src/debug_tools.dart
+import 'dart:developer' as developer;
+import 'dart:isolate';
+
+/// Ferramentas avançadas de debugging
+class DebugTools {
+  static bool _debugMode = false;
+  static final List<PerformanceMetric> _metrics = [];
+  
+  /// Ativa modo de debug
+  static void enableDebugMode() {
+    _debugMode = true;
+    developer.log('Debug mode enabled', name: 'DebugTools');
+  }
+  
+  /// Log condicional apenas em modo debug
+  static void debugLog(String message, {String? name, Object? error}) {
+    if (_debugMode) {
+      developer.log(
+        message,
+        name: name ?? 'Debug',
+        error: error,
+        time: DateTime.now(),
+      );
+    }
+  }
+  
+  /// Medição de performance de funções
+  static T measurePerformance<T>(
+    String operationName,
+    T Function() operation,
+  ) {
+    if (!_debugMode) return operation();
+    
+    final stopwatch = Stopwatch()..start();
+    T result;
+    
+    try {
+      result = operation();
+      return result;
+    } catch (e) {
+      debugLog('Error in $operationName: $e', error: e);
+      rethrow;
+    } finally {
+      stopwatch.stop();
+      final metric = PerformanceMetric(
+        operationName: operationName,
+        duration: stopwatch.elapsed,
+        timestamp: DateTime.now(),
+      );
+      _metrics.add(metric);
+      
+      debugLog(
+        'Performance: $operationName took ${stopwatch.elapsedMilliseconds}ms',
+        name: 'Performance',
+      );
+    }
+  }
+  
+  /// Medição de performance de operações async
+  static Future<T> measurePerformanceAsync<T>(
+    String operationName,
+    Future<T> Function() operation,
+  ) async {
+    if (!_debugMode) return operation();
+    
+    final stopwatch = Stopwatch()..start();
+    T result;
+    
+    try {
+      result = await operation();
+      return result;
+    } catch (e) {
+      debugLog('Error in $operationName: $e', error: e);
+      rethrow;
+    } finally {
+      stopwatch.stop();
+      final metric = PerformanceMetric(
+        operationName: operationName,
+        duration: stopwatch.elapsed,
+        timestamp: DateTime.now(),
+      );
+      _metrics.add(metric);
+      
+      debugLog(
+        'Async Performance: $operationName took ${stopwatch.elapsedMilliseconds}ms',
+        name: 'Performance',
+      );
+    }
+  }
+  
+  /// Relatório de performance
+  static String getPerformanceReport() {
+    if (_metrics.isEmpty) return 'No performance data available';
+    
+    final buffer = StringBuffer();
+    buffer.writeln('Performance Report:');
+    buffer.writeln('==================');
+    
+    // Agrupa métricas por operação
+    final groupedMetrics = <String, List<PerformanceMetric>>{};
+    for (var metric in _metrics) {
+      groupedMetrics.putIfAbsent(metric.operationName, () => []).add(metric);
+    }
+    
+    for (var entry in groupedMetrics.entries) {
+      final metrics = entry.value;
+      final totalDuration = metrics.fold<int>(
+        0,
+        (sum, metric) => sum + metric.duration.inMilliseconds,
+      );
+      final avgDuration = totalDuration / metrics.length;
+      
+      buffer.writeln('\nOperation: ${entry.key}');
+      buffer.writeln('  Count: ${metrics.length}');
+      buffer.writeln('  Total Time: ${totalDuration}ms');
+      buffer.writeln('  Average Time: ${avgDuration.toStringAsFixed(2)}ms');
+      buffer.writeln('  Min Time: ${metrics.map((m) => m.duration.inMilliseconds).reduce((a, b) => a < b ? a : b)}ms');
+      buffer.writeln('  Max Time: ${metrics.map((m) => m.duration.inMilliseconds).reduce((a, b) => a > b ? a : b)}ms');
+    }
+    
+    return buffer.toString();
+  }
+  
+  /// Memory usage tracking
+  static String getMemoryUsage() {
+    if (!_debugMode) return 'Debug mode not enabled';
+    
+    final info = developer.Service.getIsolateID(Isolate.current);
+    return 'Isolate ID: $info';
+  }
+  
+  /// Limpa métricas coletadas
+  static void clearMetrics() {
+    _metrics.clear();
+    debugLog('Performance metrics cleared');
+  }
+}
+
+class PerformanceMetric {
+  final String operationName;
+  final Duration duration;
+  final DateTime timestamp;
+  
+  PerformanceMetric({
+    required this.operationName,
+    required this.duration,
+    required this.timestamp,
+  });
+}
+
+/// Extension para facilitar debugging
+extension DebuggableFunction<T> on T Function() {
+  T debug(String operationName) {
+    return DebugTools.measurePerformance(operationName, this);
+  }
+}
+
+extension DebuggableAsyncFunction<T> on Future<T> Function() {
+  Future<T> debug(String operationName) {
+    return DebugTools.measurePerformanceAsync(operationName, this);
+  }
+}
+```
+
+### 12.3 Build Scripts e Automação
+
+```dart
+// tool/build_script.dart
+import 'dart:io';
+import 'dart:convert';
+
+/// Script de build automatizado
+class BuildScript {
+  static const String version = '1.0.0';
+  
+  static Future<void> main(List<String> args) async {
+    final buildType = args.isNotEmpty ? args[0] : 'development';
+    
+    print('🚀 Starting build process (v$version)');
+    print('📋 Build type: $buildType');
+    
+    try {
+      await _checkPrerequisites();
+      await _runTests();
+      await _analyzeCode();
+      await _buildDocumentation();
+      
+      if (buildType == 'release') {
+        await _buildRelease();
+      }
+      
+      print('✅ Build completed successfully!');
+    } catch (e) {
+      print('❌ Build failed: $e');
+      exit(1);
+    }
+  }
+  
+  static Future<void> _checkPrerequisites() async {
+    print('🔍 Checking prerequisites...');
+    
+    // Verifica se Dart SDK está instalado
+    final dartVersion = await _runCommand('dart', ['--version']);
+    print('  ✓ Dart SDK: ${dartVersion.trim()}');
+    
+    // Verifica dependências
+    await _runCommand('dart', ['pub', 'get']);
+    print('  ✓ Dependencies resolved');
+  }
+  
+  static Future<void> _runTests() async {
+    print('🧪 Running tests...');
+    
+    final result = await _runCommand('dart', ['test', '--coverage=coverage']);
+    
+    if (result.contains('All tests passed!')) {
+      print('  ✓ All tests passed');
+    } else {
+      throw Exception('Tests failed');
+    }
+    
+    // Gera relatório de cobertura
+    await _runCommand('dart', ['run', 'coverage:format_coverage', 
+      '--lcov', '--in=coverage', '--out=coverage/lcov.info']);
+    print('  ✓ Coverage report generated');
+  }
+  
+  static Future<void> _analyzeCode() async {
+    print('🔍 Analyzing code...');
+    
+    final result = await _runCommand('dart', ['analyze', '--fatal-infos']);
+    
+    if (result.contains('No issues found')) {
+      print('  ✓ No analysis issues found');
+    } else {
+      print('  ⚠️ Analysis issues detected:');
+      print(result);
+    }
+  }
+  
+  static Future<void> _buildDocumentation() async {
+    print('📚 Building documentation...');
+    
+    await _runCommand('dart', ['doc']);
+    print('  ✓ Documentation generated');
+  }
+  
+  static Future<void> _buildRelease() async {
+    print('📦 Building release...');
+    
+    // Compila para executável
+    await _runCommand('dart', ['compile', 'exe', 'bin/main.dart', 
+      '-o', 'build/my_awesome_package']);
+    
+    // Cria package
+    await _runCommand('dart', ['pub', 'publish', '--dry-run']);
+    
+    print('  ✓ Release build completed');
+  }
+  
+  static Future<String> _runCommand(String command, List<String> args) async {
+    final process = await Process.run(command, args);
+    
+    if (process.exitCode != 0) {
+      throw Exception('Command failed: $command ${args.join(" ")}\n${process.stderr}');
+    }
+    
+    return process.stdout.toString();
+  }
+}
+
+void main(List<String> args) => BuildScript.main(args);
+```
+
+### Build Configuration
+
+```yaml
+# build.yaml
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          explicit_to_json: true
+          create_factory: true
+          nullable: true
+      
+  test:
+    dependencies: ['build_test']
+    sources: ['test/**']
+    
+global_options:
+  json_serializable:
+    options:
+      any_map: true
+      explicit_to_json: true
+```
+
+## 13. Interoperabilidade Avançada
+
+### 13.1 FFI (Foreign Function Interface) Detalhado
+
+```dart
+// lib/src/native_library.dart
+import 'dart:ffi' as ffi;
+import 'dart:io' show Platform, Directory;
+import 'package:ffi/ffi.dart';
+
+/// Interface para biblioteca nativa C
+class NativeLibrary {
+  static ffi.DynamicLibrary? _library;
+  
+  /// Carrega a biblioteca nativa baseada na plataforma
+  static ffi.DynamicLibrary get library {
+    if (_library != null) return _library!;
+    
+    if (Platform.isMacOS) {
+      _library = ffi.DynamicLibrary.open('native/libawesome.dylib');
+    } else if (Platform.isLinux) {
+      _library = ffi.DynamicLibrary.open('native/libawesome.so');
+    } else if (Platform.isWindows) {
+      _library = ffi.DynamicLibrary.open('native\\awesome.dll');
+    } else {
+      throw UnsupportedError('Plataforma não suportada: ${Platform.operatingSystem}');
+    }
+    
+    return _library!;
+  }
+}
+
+/// Estruturas C mapeadas para Dart
+class NativePoint extends ffi.Struct {
+  @ffi.Double()
+  external double x;
+  
+  @ffi.Double()
+  external double y;
+  
+  factory NativePoint.allocate(double x, double y) {
+    final ptr = malloc<NativePoint>();
+    ptr.ref
+      ..x = x
+      ..y = y;
+    return ptr.ref;
+  }
+}
+
+class NativeRect extends ffi.Struct {
+  @ffi.Double()
+  external double x;
+  
+  @ffi.Double()
+  external double y;
+  
+  @ffi.Double()
+  external double width;
+  
+  @ffi.Double()
+  external double height;
+}
+
+/// Definições de funções nativas
+typedef NativeDistanceFunction = ffi.Double Function(
+  ffi.Pointer<NativePoint> point1,
+  ffi.Pointer<NativePoint> point2,
+);
+
+typedef DartDistanceFunction = double Function(
+  ffi.Pointer<NativePoint> point1,
+  ffi.Pointer<NativePoint> point2,
+);
+
+typedef NativeRectAreaFunction = ffi.Double Function(
+  ffi.Pointer<NativeRect> rect,
+);
+
+typedef DartRectAreaFunction = double Function(
+  ffi.Pointer<NativeRect> rect,
+);
+
+/// Wrapper Dart para funções nativas
+class NativeMath {
+  static late final DartDistanceFunction _calculateDistance;
+  static late final DartRectAreaFunction _calculateRectArea;
+  
+  static void initialize() {
+    final lib = NativeLibrary.library;
+    
+    _calculateDistance = lib
+        .lookup<ffi.NativeFunction<NativeDistanceFunction>>('calculate_distance')
+        .asFunction<DartDistanceFunction>();
+        
+    _calculateRectArea = lib
+        .lookup<ffi.NativeFunction<NativeRectAreaFunction>>('calculate_rect_area')
+        .asFunction<DartRectAreaFunction>();
+  }
+  
+  /// Calcula distância entre dois pontos usando código nativo
+  static double calculateDistance(double x1, double y1, double x2, double y2) {
+    final point1 = malloc<NativePoint>();
+    final point2 = malloc<NativePoint>();
+    
+    try {
+      point1.ref
+        ..x = x1
+        ..y = y1;
+      
+      point2.ref
+        ..x = x2
+        ..y = y2;
+      
+      return _calculateDistance(point1, point2);
+    } finally {
+      malloc.free(point1);
+      malloc.free(point2);
+    }
+  }
+  
+  /// Calcula área de retângulo usando código nativo
+  static double calculateRectArea(double x, double y, double width, double height) {
+    final rect = malloc<NativeRect>();
+    
+    try {
+      rect.ref
+        ..x = x
+        ..y = y
+        ..width = width
+        ..height = height;
+      
+      return _calculateRectArea(rect);
+    } finally {
+      malloc.free(rect);
+    }
+  }
+}
+
+/// Helper para gerenciar memória nativa
+class NativeMemoryManager {
+  static final List<ffi.Pointer> _allocatedPointers = [];
+  
+  static T allocate<T extends ffi.NativeType>(int count) {
+    final pointer = malloc<T>(count);
+    _allocatedPointers.add(pointer);
+    return pointer as T;
+  }
+  
+  static void freeAll() {
+    for (final pointer in _allocatedPointers) {
+      malloc.free(pointer);
+    }
+    _allocatedPointers.clear();
+  }
+  
+  static void free(ffi.Pointer pointer) {
+    malloc.free(pointer);
+    _allocatedPointers.remove(pointer);
+  }
+}
+```
+
+### 13.2 Platform Channels (Flutter Integration)
+
+```dart
+// lib/src/platform_integration.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+
+/// Integração avançada com platform channels
+class AdvancedPlatformIntegration {
+  static const MethodChannel _methodChannel = 
+      MethodChannel('com.example.my_awesome_package/methods');
+  
+  static const EventChannel _eventChannel = 
+      EventChannel('com.example.my_awesome_package/events');
+      
+  static const BasicMessageChannel<String> _messageChannel = 
+      BasicMessageChannel('com.example.my_awesome_package/messages', StringCodec());
+  
+  /// Stream de eventos da plataforma
+  static Stream<Map<String, dynamic>>? _eventStream;
+  
+  /// Inicializa a integração com a plataforma
+  static Future<void> initialize() async {
+    try {
+      await _methodChannel.invokeMethod('initialize');
+    } on PlatformException catch (e) {
+      throw PlatformIntegrationException(
+        'Failed to initialize platform integration: ${e.message}',
+        e.code,
+      );
+    }
+  }
+  
+  /// Obtém informações do dispositivo
+  static Future<DeviceInfo> getDeviceInfo() async {
+    try {
+      final result = await _methodChannel.invokeMethod('getDeviceInfo');
+      return DeviceInfo.fromMap(Map<String, dynamic>.from(result));
+    } on PlatformException catch (e) {
+      throw PlatformIntegrationException(
+        'Failed to get device info: ${e.message}',
+        e.code,
+      );
+    }
+  }
+  
+  /// Executa operação intensiva na plataforma nativa
+  static Future<ProcessingResult> processLargeData(Uint8List data) async {
+    try {
+      final result = await _methodChannel.invokeMethod('processLargeData', {
+        'data': data,
+        'options': {
+          'compression': true,
+          'encryption': false,
+        },
+      });
+      
+      return ProcessingResult.fromMap(Map<String, dynamic>.from(result));
+    } on PlatformException catch (e) {
+      throw PlatformIntegrationException(
+        'Failed to process data: ${e.message}',
+        e.code,
+      );
+    }
+  }
+  
+  /// Acesso a recursos do sistema (câmera, localização, etc.)
+  static Future<bool> requestPermission(SystemPermission permission) async {
+    try {
+      final result = await _methodChannel.invokeMethod('requestPermission', {
+        'permission': permission.toString().split('.').last,
+      });
+      return result as bool;
+    } on PlatformException catch (e) {
+      throw PlatformIntegrationException(
+        'Failed to request permission: ${e.message}',
+        e.code,
+      );
+    }
+  }
+  
+  /// Stream de eventos do sistema
+  static Stream<Map<String, dynamic>> get systemEvents {
+    _eventStream ??= _eventChannel
+        .receiveBroadcastStream()
+        .map((event) => Map<String, dynamic>.from(event));
+    return _eventStream!;
+  }
+  
+  /// Envia mensagem bidirecional
+  static Future<String> sendMessage(String message) async {
+    final completer = Completer<String>();
+    
+    _messageChannel.setMessageHandler((String? message) async {
+      completer.complete(message ?? '');
+      return 'Message received';
+    });
+    
+    await _messageChannel.send(message);
+    return completer.future;
+  }
+  
+  /// Cleanup recursos
+  static void dispose() {
+    _messageChannel.setMessageHandler(null);
+  }
+}
+
+/// Informações do dispositivo
+class DeviceInfo {
+  final String platform;
+  final String version;
+  final String model;
+  final String identifier;
+  final Map<String, dynamic> capabilities;
+  
+  DeviceInfo({
+    required this.platform,
+    required this.version,
+    required this.model,
+    required this.identifier,
+    required this.capabilities,
+  });
+  
+  factory DeviceInfo.fromMap(Map<String, dynamic> map) {
+    return DeviceInfo(
+      platform: map['platform'] as String,
+      version: map['version'] as String,
+      model: map['model'] as String,
+      identifier: map['identifier'] as String,
+      capabilities: Map<String, dynamic>.from(map['capabilities']),
+    );
+  }
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'platform': platform,
+      'version': version,
+      'model': model,
+      'identifier': identifier,
+      'capabilities': capabilities,
+    };
+  }
+}
+
+/// Resultado de processamento
+class ProcessingResult {
+  final bool success;
+  final Uint8List? processedData;
+  final Duration processingTime;
+  final Map<String, dynamic> metadata;
+  
+  ProcessingResult({
+    required this.success,
+    this.processedData,
+    required this.processingTime,
+    required this.metadata,
+  });
+  
+  factory ProcessingResult.fromMap(Map<String, dynamic> map) {
+    return ProcessingResult(
+      success: map['success'] as bool,
+      processedData: map['processedData'] as Uint8List?,
+      processingTime: Duration(milliseconds: map['processingTimeMs'] as int),
+      metadata: Map<String, dynamic>.from(map['metadata']),
+    );
+  }
+}
+
+enum SystemPermission {
+  camera,
+  microphone,
+  location,
+  storage,
+  notifications,
+}
+
+class PlatformIntegrationException implements Exception {
+  final String message;
+  final String? code;
+  
+  PlatformIntegrationException(this.message, [this.code]);
+  
+  @override
+  String toString() => 'PlatformIntegrationException: $message${code != null ? ' (Code: $code)' : ''}';
+}
+```
+
+### 13.3 Web Interoperability
+
+```dart
+// lib/src/web_integration.dart
+@JS()
+library web_integration;
+
+import 'dart:html' as html;
+import 'dart:js' as js;
+import 'dart:js_util' as js_util;
+import 'package:js/js.dart';
+
+/// Interoperabilidade avançada com JavaScript
+class WebIntegration {
+  /// Chama função JavaScript externa
+  static dynamic callJavaScriptFunction(String functionName, List<dynamic> args) {
+    final jsFunction = js.context[functionName];
+    if (jsFunction == null) {
+      throw ArgumentError('JavaScript function $functionName not found');
+    }
+    
+    return js.context.callMethod(functionName, args);
+  }
+  
+  /// Registra callback Dart para JavaScript
+  static void registerDartCallback(String name, Function callback) {
+    js.context[name] = js.allowInterop(callback);
+  }
+  
+  /// Integração com APIs do browser
+  static Future<String> getUserLocation() async {
+    final completer = Completer<String>();
+    
+    if (html.window.navigator.geolocation != null) {
+      html.window.navigator.geolocation!.watchPosition(
+        enableHighAccuracy: true,
+      ).listen((html.Geoposition position) {
+        final lat = position.coords!.latitude;
+        final lng = position.coords!.longitude;
+        completer.complete('$lat,$lng');
+      }, onError: (error) {
+        completer.completeError('Geolocation error: $error');
+      });
+    } else {
+      completer.completeError('Geolocation not supported');
+    }
+    
+    return completer.future;
+  }
+  
+  /// Manipulação avançada do DOM
+  static void createAdvancedDOMElements() {
+    final container = html.DivElement()
+      ..id = 'dart-container'
+      ..className = 'advanced-container'
+      ..style.cssText = '''
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+      ''';
+    
+    final title = html.HeadingElement.h3()
+      ..text = 'Dart Web Integration'
+      ..style.margin = '0 0 10px 0';
+    
+    final button = html.ButtonElement()
+      ..text = 'Test Integration'
+      ..onClick.listen((_) => _testIntegration());
+    
+    container.children.addAll([title, button]);
+    html.document.body!.children.add(container);
+  }
+  
+  static void _testIntegration() {
+    html.window.alert('Integration test successful!');
+  }
+  
+  /// Worker thread para processamento pesado
+  static Future<String> processInWorker(String data) async {
+    final completer = Completer<String>();
+    
+    // Cria Web Worker
+    final workerScript = '''
+      self.onmessage = function(e) {
+        // Simula processamento pesado
+        const data = e.data;
+        let result = '';
+        for (let i = 0; i < 1000000; i++) {
+          result += data.charAt(i % data.length);
+        }
+        self.postMessage(result.substring(0, 100));
+      };
+    ''';
+    
+    final blob = html.Blob([workerScript], 'application/javascript');
+    final worker = html.Worker(html.Url.createObjectUrlFromBlob(blob));
+    
+    worker.onMessage.listen((html.MessageEvent event) {
+      completer.complete(event.data as String);
+      worker.terminate();
+    });
+    
+    worker.onError.listen((html.Event error) {
+      completer.completeError('Worker error: $error');
+      worker.terminate();
+    });
+    
+    worker.postMessage(data);
+    return completer.future;
+  }
+}
+
+/// Definições de interoperabilidade JavaScript
+@JS('console.log')
+external void consoleLog(String message);
+
+@JS('JSON.stringify')
+external String jsonStringify(dynamic object);
+
+@JS('JSON.parse')
+external dynamic jsonParse(String json);
+
+@JS()
+@anonymous
+class JSObject {
+  external factory JSObject({String? name, int? value});
+  external String get name;
+  external int get value;
+}
+
+/// Wrapper para bibliotecas JavaScript externas
+class ExternalLibraryWrapper {
+  /// Inicializa biblioteca externa
+  static Future<void> loadExternalLibrary(String scriptUrl) async {
+    final completer = Completer<void>();
+    
+    final script = html.ScriptElement()
+      ..src = scriptUrl
+      ..async = true;
+    
+    script.onLoad.listen((_) => completer.complete());
+    script.onError.listen((_) => completer.completeError('Failed to load $scriptUrl'));
+    
+    html.document.head!.children.add(script);
+    return completer.future;
+  }
+  
+  /// Usa biblioteca Chart.js como exemplo
+  static void createChart(html.CanvasElement canvas, Map<String, dynamic> config) {
+    js.context.callMethod('Chart', [canvas, js_util.jsify(config)]);
+  }
+}
+```
+
+## 14. Padrões Arquiteturais Avançados
+
+### 14.1 Repository Pattern com Cache
+
+```dart
+// lib/src/patterns/repository_pattern.dart
+import 'dart:async';
+
+/// Interface base para repositórios
+abstract class Repository<T, ID> {
+  Future<T?> findById(ID id);
+  Future<List<T>> findAll();
+  Future<T> save(T entity);
+  Future<void> delete(ID id);
+  Future<List<T>> findByQuery(Query query);
+}
+
+/// Implementação de repositório com cache e fallback
+class CachedRepository<T extends Entity<ID>, ID> implements Repository<T, ID> {
+  final Repository<T, ID> _primaryDataSource;
+  final Repository<T, ID>? _fallbackDataSource;
+  final CacheStrategy<T, ID> _cacheStrategy;
+  final Duration _cacheTimeout;
+  
+  CachedRepository({
+    required Repository<T, ID> primaryDataSource,
+    Repository<T, ID>? fallbackDataSource,
+    required CacheStrategy<T, ID> cacheStrategy,
+    Duration cacheTimeout = const Duration(minutes: 5),
+  })  : _primaryDataSource = primaryDataSource,
+        _fallbackDataSource = fallbackDataSource,
+        _cacheStrategy = cacheStrategy,
+        _cacheTimeout = cacheTimeout;
+  
+  @override
+  Future<T?> findById(ID id) async {
+    // Verifica cache primeiro
+    final cached = await _cacheStrategy.get(id);
+    if (cached != null && !_cacheStrategy.isExpired(id)) {
+      return cached;
+    }
+    
+    try {
+      // Tenta fonte primária
+      final entity = await _primaryDataSource.findById(id);
+      if (entity != null) {
+        await _cacheStrategy.put(id, entity);
+        return entity;
+      }
+    } catch (e) {
+      if (_fallbackDataSource != null) {
+        try {
+          final fallbackEntity = await _fallbackDataSource!.findById(id);
+          if (fallbackEntity != null) {
+            await _cacheStrategy.put(id, fallbackEntity);
+            return fallbackEntity;
+          }
+        } catch (fallbackError) {
+          // Log both errors but continue
+          print('Primary error: $e, Fallback error: $fallbackError');
+        }
+      }
+    }
+    
+    // Retorna cache expirado se disponível
+    return cached;
+  }
+  
+  @override
+  Future<List<T>> findAll() async {
+    try {
+      final entities = await _primaryDataSource.findAll();
+      // Cache todas as entidades
+      for (final entity in entities) {
+        await _cacheStrategy.put(entity.id, entity);
+      }
+      return entities;
+    } catch (e) {
+      if (_fallbackDataSource != null) {
+        return _fallbackDataSource!.findAll();
+      }
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<T> save(T entity) async {
+    final savedEntity = await _primaryDataSource.save(entity);
+    // Atualiza cache
+    await _cacheStrategy.put(entity.id, savedEntity);
+    return savedEntity;
+  }
+  
+  @override
+  Future<void> delete(ID id) async {
+    await _primaryDataSource.delete(id);
+    await _cacheStrategy.remove(id);
+  }
+  
+  @override
+  Future<List<T>> findByQuery(Query query) async {
+    // Para queries, geralmente não fazemos cache (muito específicas)
+    try {
+      return await _primaryDataSource.findByQuery(query);
+    } catch (e) {
+      if (_fallbackDataSource != null) {
+        return _fallbackDataSource!.findByQuery(query);
+      }
+      rethrow;
+    }
+  }
+}
+
+/// Estratégia de cache
+abstract class CacheStrategy<T, ID> {
+  Future<T?> get(ID id);
+  Future<void> put(ID id, T entity);
+  Future<void> remove(ID id);
+  Future<void> clear();
+  bool isExpired(ID id);
+}
+
+/// Implementação de cache em memória com TTL
+class InMemoryCacheStrategy<T extends Entity<ID>, ID> implements CacheStrategy<T, ID> {
+  final Map<ID, _CacheEntry<T>> _cache = {};
+  final Duration _ttl;
+  
+  InMemoryCacheStrategy({Duration ttl = const Duration(minutes: 5)}) : _ttl = ttl;
+  
+  @override
+  Future<T?> get(ID id) async {
+    final entry = _cache[id];
+    if (entry == null) return null;
+    
+    if (isExpired(id)) {
+      _cache.remove(id);
+      return null;
+    }
+    
+    entry.lastAccessed = DateTime.now();
+    return entry.entity;
+  }
+  
+  @override
+  Future<void> put(ID id, T entity) async {
+    _cache[id] = _CacheEntry(entity, DateTime.now(), DateTime.now());
+  }
+  
+  @override
+  Future<void> remove(ID id) async {
+    _cache.remove(id);
+  }
+  
+  @override
+  Future<void> clear() async {
+    _cache.clear();
+  }
+  
+  @override
+  bool isExpired(ID id) {
+    final entry = _cache[id];
+    if (entry == null) return true;
+    
+    return DateTime.now().difference(entry.cachedAt) > _ttl;
+  }
+}
+
+class _CacheEntry<T> {
+  final T entity;
+  final DateTime cachedAt;
+  DateTime lastAccessed;
+  
+  _CacheEntry(this.entity, this.cachedAt, this.lastAccessed);
+}
+
+/// Entidade base
+abstract class Entity<ID> {
+  ID get id;
+}
+
+/// Query builder
+class Query {
+  final Map<String, dynamic> _criteria = {};
+  final List<String> _orderBy = [];
+  int? _limit;
+  int? _offset;
+  
+  Query where(String field, dynamic value) {
+    _criteria[field] = value;
+    return this;
+  }
+  
+  Query orderBy(String field, {bool ascending = true}) {
+    _orderBy.add(ascending ? field : '-$field');
+    return this;
+  }
+  
+  Query limit(int count) {
+    _limit = count;
+    return this;
+  }
+  
+  Query offset(int count) {
+    _offset = count;
+    return this;
+  }
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'criteria': _criteria,
+      'orderBy': _orderBy,
+      if (_limit != null) 'limit': _limit,
+      if (_offset != null) 'offset': _offset,
+    };
+  }
+}
+```
+
+### 14.2 Command Pattern e CQRS
+
+```dart
+// lib/src/patterns/command_pattern.dart
+import 'dart:async';
+
+/// Interface base para comandos
+abstract class Command<T> {
+  Future<T> execute();
+  String get description;
+}
+
+/// Interface para comandos que podem ser desfeitos
+abstract class UndoableCommand<T> extends Command<T> {
+  Future<void> undo();
+  bool get canUndo;
+}
+
+/// Executor de comandos com histórico e retry
+class CommandExecutor {
+  final List<UndoableCommand> _history = [];
+  final int _maxHistorySize;
+  final RetryPolicy _retryPolicy;
+  
+  CommandExecutor({
+    int maxHistorySize = 100,
+    RetryPolicy? retryPolicy,
+  })  : _maxHistorySize = maxHistorySize,
+        _retryPolicy = retryPolicy ?? RetryPolicy.none();
+  
+  /// Executa comando com retry e armazena no histórico
+  Future<T> execute<T>(Command<T> command) async {
+    var attempts = 0;
+    Exception? lastException;
+    
+    while (attempts <= _retryPolicy.maxAttempts) {
+      try {
+        final result = await command.execute();
+        
+        // Adiciona ao histórico se for undoable
+        if (command is UndoableCommand<T>) {
+          _addToHistory(command);
+        }
+        
+        return result;
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        attempts++;
+        
+        if (attempts <= _retryPolicy.maxAttempts) {
+          await Future.delayed(_retryPolicy.getDelay(attempts - 1));
+        }
+      }
+    }
+    
+    throw CommandExecutionException(
+      'Command failed after ${_retryPolicy.maxAttempts + 1} attempts',
+      command.description,
+      lastException,
+    );
+  }
+  
+  /// Desfaz último comando
+  Future<void> undo() async {
+    if (_history.isEmpty) {
+      throw StateError('No commands to undo');
+    }
+    
+    final command = _history.removeLast();
+    if (command.canUndo) {
+      await command.undo();
+    }
+  }
+  
+  /// Desfaz múltiplos comandos
+  Future<void> undoMultiple(int count) async {
+    for (int i = 0; i < count && _history.isNotEmpty; i++) {
+      await undo();
+    }
+  }
+  
+  void _addToHistory(UndoableCommand command) {
+    _history.add(command);
+    
+    if (_history.length > _maxHistorySize) {
+      _history.removeAt(0);
+    }
+  }
+  
+  /// Limpa histórico
+  void clearHistory() {
+    _history.clear();
+  }
+  
+  /// Histórico de comandos
+  List<String> get commandHistory {
+    return _history.map((cmd) => cmd.description).toList();
+  }
+}
+
+/// Comando composto (macro)
+class MacroCommand<T> implements UndoableCommand<List<T>> {
+  final List<Command<T>> _commands;
+  final List<T> _results = [];
+  bool _executed = false;
+  
+  MacroCommand(this._commands);
+  
+  @override
+  String get description => 'Macro: ${_commands.map((c) => c.description).join(', ')}';
+  
+  @override
+  Future<List<T>> execute() async {
+    _results.clear();
+    
+    for (final command in _commands) {
+      final result = await command.execute();
+      _results.add(result);
+    }
+    
+    _executed = true;
+    return List.unmodifiable(_results);
+  }
+  
+  @override
+  Future<void> undo() async {
+    if (!_executed) return;
+    
+    // Desfaz na ordem reversa
+    for (int i = _commands.length - 1; i >= 0; i--) {
+      final command = _commands[i];
+      if (command is UndoableCommand) {
+        await command.undo();
+      }
+    }
+    
+    _executed = false;
+    _results.clear();
+  }
+  
+  @override
+  bool get canUndo => _executed && _commands.every((c) => c is! UndoableCommand || c.canUndo);
+}
+
+/// CQRS - Separação de Command e Query
+abstract class CommandHandler<C extends Command<T>, T> {
+  Future<T> handle(C command);
+}
+
+abstract class QueryHandler<Q extends Query<T>, T> {
+  Future<T> handle(Q query);
+}
+
+/// Bus para comandos e queries
+class MessageBus {
+  final Map<Type, CommandHandler> _commandHandlers = {};
+  final Map<Type, QueryHandler> _queryHandlers = {};
+  final List<EventHandler> _eventHandlers = [];
+  
+  /// Registra handler de comando
+  void registerCommandHandler<C extends Command<T>, T>(
+    CommandHandler<C, T> handler,
+  ) {
+    _commandHandlers[C] = handler;
+  }
+  
+  /// Registra handler de query
+  void registerQueryHandler<Q extends Query<T>, T>(
+    QueryHandler<Q, T> handler,
+  ) {
+    _queryHandlers[Q] = handler;
+  }
+  
+  /// Registra handler de evento
+  void registerEventHandler(EventHandler handler) {
+    _eventHandlers.add(handler);
+  }
+  
+  /// Envia comando
+  Future<T> send<T>(Command<T> command) async {
+    final handler = _commandHandlers[command.runtimeType];
+    if (handler == null) {
+      throw ArgumentError('No handler registered for ${command.runtimeType}');
+    }
+    
+    final result = await (handler as CommandHandler<Command<T>, T>).handle(command);
+    
+    // Publica evento após comando
+    await _publishEvent(CommandExecutedEvent(command, result));
+    
+    return result;
+  }
+  
+  /// Envia query
+  Future<T> query<T>(Query<T> query) async {
+    final handler = _queryHandlers[query.runtimeType];
+    if (handler == null) {
+      throw ArgumentError('No handler registered for ${query.runtimeType}');
+    }
+    
+    return (handler as QueryHandler<Query<T>, T>).handle(query);
+  }
+  
+  Future<void> _publishEvent(DomainEvent event) async {
+    for (final handler in _eventHandlers) {
+      if (handler.canHandle(event)) {
+        await handler.handle(event);
+      }
+    }
+  }
+}
+
+/// Política de retry
+class RetryPolicy {
+  final int maxAttempts;
+  final Duration baseDelay;
+  final double backoffMultiplier;
+  final Duration maxDelay;
+  
+  RetryPolicy({
+    required this.maxAttempts,
+    this.baseDelay = const Duration(milliseconds: 100),
+    this.backoffMultiplier = 2.0,
+    this.maxDelay = const Duration(seconds: 30),
+  });
+  
+  factory RetryPolicy.none() => RetryPolicy(maxAttempts: 0);
+  
+  factory RetryPolicy.exponential({
+    int maxAttempts = 3,
+    Duration baseDelay = const Duration(milliseconds: 100),
+  }) =>
+      RetryPolicy(
+        maxAttempts: maxAttempts,
+        baseDelay: baseDelay,
+        backoffMultiplier: 2.0,
+      );
+  
+  Duration getDelay(int attempt) {
+    final delay = Duration(
+      milliseconds: (baseDelay.inMilliseconds * 
+          math.pow(backoffMultiplier, attempt)).round(),
+    );
+    
+    return delay > maxDelay ? maxDelay : delay;
+  }
+}
+
+/// Exceções
+class CommandExecutionException implements Exception {
+  final String message;
+  final String commandDescription;
+  final Exception? innerException;
+  
+  CommandExecutionException(
+    this.message,
+    this.commandDescription, [
+    this.innerException,
+  ]);
+  
+  @override
+  String toString() => 'CommandExecutionException: $message (Command: $commandDescription)';
+}
+
+/// Eventos de domínio
+abstract class DomainEvent {
+  final DateTime occurredOn;
+  
+  DomainEvent() : occurredOn = DateTime.now();
+}
+
+class CommandExecutedEvent extends DomainEvent {
+  final Command command;
+  final dynamic result;
+  
+  CommandExecutedEvent(this.command, this.result);
+}
+
+abstract class EventHandler<T extends DomainEvent> {
+  Future<void> handle(T event);
+  bool canHandle(DomainEvent event) => event is T;
+}
+```
+
+### 14.3 Observer Pattern Reativo
+
+```dart
+// lib/src/patterns/reactive_observer.dart
+import 'dart:async';
+import 'dart:collection';
+
+/// Subject reativo que combina Observer Pattern com Streams
+class ReactiveSubject<T> {
+  final StreamController<T> _controller = StreamController<T>.broadcast();
+  final List<Observer<T>> _observers = [];
+  final Queue<T> _history = Queue<T>();
+  final int _historyLimit;
+  
+  T? _currentValue;
+  bool _hasValue = false;
+  
+  ReactiveSubject({int historyLimit = 10}) : _historyLimit = historyLimit;
+  
+  /// Stream de valores
+  Stream<T> get stream => _controller.stream;
+  
+  /// Valor atual
+  T? get value => _currentValue;
+  
+  /// Se tem valor atual
+  bool get hasValue => _hasValue;
+  
+  /// Histórico de valores
+  List<T> get history => _history.toList();
+  
+  /// Adiciona observer
+  void subscribe(Observer<T> observer) {
+    _observers.add(observer);
+    
+    // Se tem valor atual, notifica imediatamente
+    if (_hasValue) {
+      observer.onNext(_currentValue as T);
+    }
+  }
+  
+  /// Remove observer
+  void unsubscribe(Observer<T> observer) {
+    _observers.remove(observer);
+  }
+  
+  /// Emite novo valor
+  void next(T value) {
+    _currentValue = value;
+    _hasValue = true;
+    
+    // Adiciona ao histórico
+    _history.add(value);
+    if (_history.length > _historyLimit) {
+      _history.removeFirst();
+    }
+    
+    // Notifica observers
+    for (final observer in _observers) {
+      try {
+        observer.onNext(value);
+      } catch (e) {
+        observer.onError(e);
+      }
+    }
+    
+    // Emite no stream
+    _controller.add(value);
+  }
+  
+  /// Emite erro
+  void error(Object error, [StackTrace? stackTrace]) {
+    for (final observer in _observers) {
+      observer.onError(error);
+    }
+    
+    _controller.addError(error, stackTrace);
+  }
+  
+  /// Completa o subject
+  void complete() {
+    for (final observer in _observers) {
+      observer.onCompleted();
+    }
+    
+    _controller.close();
+  }
+  
+  /// Aplica operadores de transformação
+  ReactiveSubject<R> map<R>(R Function(T) mapper) {
+    final mappedSubject = ReactiveSubject<R>();
+    
+    subscribe(ObserverCallback<T>(
+      onNext: (value) => mappedSubject.next(mapper(value)),
+      onError: mappedSubject.error,
+      onCompleted: mappedSubject.complete,
+    ));
+    
+    return mappedSubject;
+  }
+  
+  /// Filtra valores
+  ReactiveSubject<T> where(bool Function(T) predicate) {
+    final filteredSubject = ReactiveSubject<T>();
+    
+    subscribe(ObserverCallback<T>(
+      onNext: (value) {
+        if (predicate(value)) {
+          filteredSubject.next(value);
+        }
+      },
+      onError: filteredSubject.error,
+      onCompleted: filteredSubject.complete,
+    ));
+    
+    return filteredSubject;
+  }
+  
+  /// Throttle - limita frequência de emissão
+  ReactiveSubject<T> throttle(Duration duration) {
+    final throttledSubject = ReactiveSubject<T>();
+    Timer? timer;
+    
+    subscribe(ObserverCallback<T>(
+      onNext: (value) {
+        timer?.cancel();
+        timer = Timer(duration, () {
+          throttledSubject.next(value);
+        });
+      },
+      onError: throttledSubject.error,
+      onCompleted: () {
+        timer?.cancel();
+        throttledSubject.complete();
+      },
+    ));
+    
+    return throttledSubject;
+  }
+  
+  /// Debounce - emite apenas após período de silêncio
+  ReactiveSubject<T> debounce(Duration duration) {
+    final debouncedSubject = ReactiveSubject<T>();
+    Timer? debounceTimer;
+    
+    subscribe(ObserverCallback<T>(
+      onNext: (value) {
+        debounceTimer?.cancel();
+        debounceTimer = Timer(duration, () {
+          debouncedSubject.next(value);
+        });
+      },
+      onError: debouncedSubject.error,
+      onCompleted: () {
+        debounceTimer?.cancel();
+        debouncedSubject.complete();
+      },
+    ));
+    
+    return debouncedSubject;
+  }
+  
+  /// Combina com outro subject
+  ReactiveSubject<R> combineWith<U, R>(
+    ReactiveSubject<U> other,
+    R Function(T, U) combiner,
+  ) {
+    final combinedSubject = ReactiveSubject<R>();
+    
+    void tryEmit() {
+      if (hasValue && other.hasValue) {
+        combinedSubject.next(combiner(value as T, other.value as U));
+      }
+    }
+    
+    subscribe(ObserverCallback<T>(
+      onNext: (_) =>
