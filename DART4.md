@@ -1985,3 +1985,2041 @@ Future<void> performanceTests() async {
   print(bstResult);
 }
 ```
+
+## 9. Concorrência e Paralelismo Avançado
+
+### 9.1 Worker Pool Implementation
+
+```dart
+import 'dart:isolate';
+import 'dart:async';
+
+class WorkerPool {
+  final int _poolSize;
+  final List<Worker> _workers = [];
+  final Queue<WorkItem> _queue = Queue<WorkItem>();
+  bool _isShutdown = false;
+  
+  WorkerPool(this._poolSize);
+  
+  Future<void> start() async {
+    for (int i = 0; i < _poolSize; i++) {
+      var worker = Worker(i);
+      await worker.start();
+      _workers.add(worker);
+    }
+    _processQueue();
+  }
+  
+  Future<T> execute<T>(dynamic message) {
+    if (_isShutdown) {
+      throw StateError('WorkerPool is shutdown');
+    }
+    
+    var completer = Completer<T>();
+    var workItem = WorkItem<T>(message, completer);
+    _queue.add(workItem);
+    
+    return completer.future;
+  }
+  
+  void _processQueue() {
+    Timer.periodic(Duration(milliseconds: 10), (timer) {
+      if (_isShutdown) {
+        timer.cancel();
+        return;
+      }
+      
+      while (_queue.isNotEmpty) {
+        var availableWorker = _workers.firstWhere(
+          (worker) => worker.isAvailable,
+          orElse: () => null,
+        );
+        
+        if (availableWorker != null) {
+          var workItem = _queue.removeFirst();
+          availableWorker.execute(workItem);
+        } else {
+          break;
+        }
+      }
+    });
+  }
+  
+  Future<void> shutdown() async {
+    _isShutdown = true;
+    
+    // Wait for all workers to complete current tasks
+    while (_workers.any((worker) => !worker.isAvailable)) {
+      await Future.delayed(Duration(milliseconds: 10));
+    }
+    
+    // Shutdown all workers
+    for (var worker in _workers) {
+      worker.shutdown();
+    }
+  }
+}
+
+class WorkItem<T> {
+  final dynamic message;
+  final Completer<T> completer;
+  
+  WorkItem(this.message, this.completer);
+}
+
+class Worker {
+  final int id;
+  late Isolate _isolate;
+  late SendPort _sendPort;
+  late ReceivePort _receivePort;
+  bool _isAvailable = true;
+  bool _isInitialized = false;
+  
+  Worker(this.id);
+  
+  bool get isAvailable => _isAvailable && _isInitialized;
+  
+  Future<void> start() async {
+    _receivePort = ReceivePort();
+    _isolate = await Isolate.spawn(_isolateEntryPoint, _receivePort.sendPort);
+    
+    await for (var message in _receivePort) {
+      if (message is SendPort) {
+        _sendPort = message;
+        _isInitialized = true;
+        break;
+      }
+    }
+  }
+  
+  void execute<T>(WorkItem<T> workItem) {
+    if (!isAvailable) {
+      throw StateError('Worker is not available');
+    }
+    
+    _isAvailable = false;
+    
+    var responsePort = ReceivePort();
+    _sendPort.send({
+      'message': workItem.message,
+      'replyTo': responsePort.sendPort,
+    });
+    
+    responsePort.listen((response) {
+      _isAvailable = true;
+      responsePort.close();
+      
+      if (response is Map && response.containsKey('error')) {
+        workItem.completer.completeError(response['error']);
+      } else {
+        workItem.completer.complete(response);
+      }
+    });
+  }
+  
+  void shutdown() {
+    _isolate.kill(priority: Isolate.immediate);
+    _receivePort.close();
+  }
+  
+  static void _isolateEntryPoint(SendPort sendPort) {
+    var receivePort = ReceivePort();
+    sendPort.send(receivePort.sendPort);
+    
+    receivePort.listen((data) {
+      var message = data['message'];
+      var replyTo = data['replyTo'] as SendPort;
+      
+      try {
+        // Process the message
+        var result = _processMessage(message);
+        replyTo.send(result);
+      } catch (e, stackTrace) {
+        replyTo.send({'error': e.toString(), 'stackTrace': stackTrace.toString()});
+      }
+    });
+  }
+  
+  static dynamic _processMessage(dynamic message) {
+    // Example processing - can be customized
+    if (message is Map && message['type'] == 'fibonacci') {
+      return _fibonacci(message['n']);
+    } else if (message is Map && message['type'] == 'prime') {
+      return _isPrime(message['n']);
+    } else if (message is Map && message['type'] == 'sort') {
+      var list = List<int>.from(message['list']);
+      list.sort();
+      return list;
+    }
+    
+    return 'Unknown message type';
+  }
+  
+  static int _fibonacci(int n) {
+    if (n <= 1) return n;
+    return _fibonacci(n - 1) + _fibonacci(n - 2);
+  }
+  
+  static bool _isPrime(int n) {
+    if (n < 2) return false;
+    for (int i = 2; i * i <= n; i++) {
+      if (n % i == 0) return false;
+    }
+    return true;
+  }
+}
+
+// Example usage of WorkerPool
+Future<void> exemploWorkerPool() async {
+  var pool = WorkerPool(4);
+  await pool.start();
+  
+  print('Worker pool started with 4 workers');
+  
+  // Execute multiple tasks in parallel
+  var futures = <Future>[];
+  
+  // Fibonacci calculations
+  for (int i = 30; i <= 35; i++) {
+    futures.add(pool.execute({'type': 'fibonacci', 'n': i}));
+  }
+  
+  // Prime checks
+  for (int i = 1000000; i <= 1000010; i++) {
+    futures.add(pool.execute({'type': 'prime', 'n': i}));
+  }
+  
+  // Sorting
+  var randomList = List.generate(1000, (index) => Random().nextInt(10000));
+  futures.add(pool.execute({'type': 'sort', 'list': randomList}));
+  
+  var results = await Future.wait(futures);
+  
+  print('All tasks completed:');
+  for (int i = 0; i < results.length; i++) {
+    print('Task $i: ${results[i]}');
+  }
+  
+  await pool.shutdown();
+  print('Worker pool shutdown');
+}
+```
+
+### 9.2 Reactive Streams com RxDart Patterns
+
+```dart
+import 'dart:async';
+
+// Custom Stream operators
+extension StreamExtensions<T> on Stream<T> {
+  Stream<T> throttle(Duration duration) {
+    return transform(ThrottleStreamTransformer<T>(duration));
+  }
+  
+  Stream<T> debounce(Duration duration) {
+    return transform(DebounceStreamTransformer<T>(duration));
+  }
+  
+  Stream<List<T>> buffer(Duration duration) {
+    return transform(BufferStreamTransformer<T>(duration));
+  }
+  
+  Stream<T> retry(int maxRetries) {
+    return transform(RetryStreamTransformer<T>(maxRetries));
+  }
+}
+
+class ThrottleStreamTransformer<T> extends StreamTransformerBase<T, T> {
+  final Duration duration;
+  
+  ThrottleStreamTransformer(this.duration);
+  
+  @override
+  Stream<T> bind(Stream<T> stream) {
+    late StreamController<T> controller;
+    late StreamSubscription<T> subscription;
+    Timer? timer;
+    bool canEmit = true;
+    
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = stream.listen(
+          (data) {
+            if (canEmit) {
+              controller.add(data);
+              canEmit = false;
+              timer = Timer(duration, () {
+                canEmit = true;
+              });
+            }
+          },
+          onError: controller.addError,
+          onDone: () {
+            timer?.cancel();
+            controller.close();
+          },
+        );
+      },
+      onCancel: () {
+        subscription.cancel();
+        timer?.cancel();
+      },
+    );
+    
+    return controller.stream;
+  }
+}
+
+class DebounceStreamTransformer<T> extends StreamTransformerBase<T, T> {
+  final Duration duration;
+  
+  DebounceStreamTransformer(this.duration);
+  
+  @override
+  Stream<T> bind(Stream<T> stream) {
+    late StreamController<T> controller;
+    late StreamSubscription<T> subscription;
+    Timer? timer;
+    
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = stream.listen(
+          (data) {
+            timer?.cancel();
+            timer = Timer(duration, () {
+              controller.add(data);
+            });
+          },
+          onError: controller.addError,
+          onDone: () {
+            timer?.cancel();
+            controller.close();
+          },
+        );
+      },
+      onCancel: () {
+        subscription.cancel();
+        timer?.cancel();
+      },
+    );
+    
+    return controller.stream;
+  }
+}
+
+class BufferStreamTransformer<T> extends StreamTransformerBase<T, List<T>> {
+  final Duration duration;
+  
+  BufferStreamTransformer(this.duration);
+  
+  @override
+  Stream<List<T>> bind(Stream<T> stream) {
+    late StreamController<List<T>> controller;
+    late StreamSubscription<T> subscription;
+    Timer? timer;
+    List<T> buffer = [];
+    
+    void emitBuffer() {
+      if (buffer.isNotEmpty) {
+        controller.add(List.from(buffer));
+        buffer.clear();
+      }
+    }
+    
+    controller = StreamController<List<T>>(
+      onListen: () {
+        timer = Timer.periodic(duration, (_) => emitBuffer());
+        
+        subscription = stream.listen(
+          (data) {
+            buffer.add(data);
+          },
+          onError: controller.addError,
+          onDone: () {
+            timer?.cancel();
+            emitBuffer();
+            controller.close();
+          },
+        );
+      },
+      onCancel: () {
+        subscription.cancel();
+        timer?.cancel();
+      },
+    );
+    
+    return controller.stream;
+  }
+}
+
+class RetryStreamTransformer<T> extends StreamTransformerBase<T, T> {
+  final int maxRetries;
+  
+  RetryStreamTransformer(this.maxRetries);
+  
+  @override
+  Stream<T> bind(Stream<T> stream) {
+    return Stream.fromFuture(_retryLogic(stream));
+  }
+  
+  Future<T> _retryLogic(Stream<T> stream) async {
+    Exception? lastException;
+    
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await for (var value in stream) {
+          return value; // Return first successful value
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        if (attempt == maxRetries) {
+          throw lastException;
+        }
+        await Future.delayed(Duration(milliseconds: 100 * (attempt + 1)));
+      }
+    }
+    
+    throw lastException ?? Exception('Stream retry failed');
+  }
+}
+
+// Reactive State Management
+class ReactiveState<T> {
+  final BehaviorSubject<T> _subject;
+  
+  ReactiveState(T initialValue) : _subject = BehaviorSubject<T>.seeded(initialValue);
+  
+  T get value => _subject.value;
+  Stream<T> get stream => _subject.stream;
+  
+  void update(T newValue) {
+    if (_subject.value != newValue) {
+      _subject.add(newValue);
+    }
+  }
+  
+  void updateWith(T Function(T current) updater) {
+    update(updater(_subject.value));
+  }
+  
+  void dispose() {
+    _subject.close();
+  }
+}
+
+class BehaviorSubject<T> {
+  late StreamController<T> _controller;
+  late T _value;
+  
+  BehaviorSubject.seeded(T initialValue) : _value = initialValue {
+    _controller = StreamController<T>.broadcast(
+      onListen: () {
+        _controller.add(_value);
+      },
+    );
+  }
+  
+  T get value => _value;
+  Stream<T> get stream => _controller.stream;
+  
+  void add(T value) {
+    _value = value;
+    _controller.add(value);
+  }
+  
+  void close() {
+    _controller.close();
+  }
+}
+
+// Example: Reactive Counter
+class ReactiveCounter {
+  final ReactiveState<int> _count = ReactiveState(0);
+  late final Stream<String> _message;
+  
+  ReactiveCounter() {
+    _message = _count.stream
+        .map((count) => count % 2 == 0 ? 'Even: $count' : 'Odd: $count')
+        .distinct();
+  }
+  
+  Stream<int> get count => _count.stream;
+  Stream<String> get message => _message;
+  
+  void increment() => _count.updateWith((current) => current + 1);
+  void decrement() => _count.updateWith((current) => current - 1);
+  void reset() => _count.update(0);
+  
+  void dispose() {
+    _count.dispose();
+  }
+}
+```
+
+## 10. Network Programming e APIs
+
+### 10.1 HTTP Client Avançado
+
+```dart
+import 'dart:convert';
+import 'dart:io';
+
+class HttpClient {
+  final String baseUrl;
+  final Map<String, String> _defaultHeaders;
+  final Duration timeout;
+  final int maxRetries;
+  
+  HttpClient({
+    required this.baseUrl,
+    Map<String, String>? headers,
+    this.timeout = const Duration(seconds: 30),
+    this.maxRetries = 3,
+  }) : _defaultHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...?headers,
+  };
+  
+  Future<ApiResponse<T>> get<T>(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParams,
+    T Function(Map<String, dynamic>)? parser,
+  }) async {
+    return _makeRequest<T>(
+      'GET',
+      endpoint,
+      headers: headers,
+      queryParams: queryParams,
+      parser: parser,
+    );
+  }
+  
+  Future<ApiResponse<T>> post<T>(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+    T Function(Map<String, dynamic>)? parser,
+  }) async {
+    return _makeRequest<T>(
+      'POST',
+      endpoint,
+      headers: headers,
+      body: body,
+      parser: parser,
+    );
+  }
+  
+  Future<ApiResponse<T>> put<T>(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+    T Function(Map<String, dynamic>)? parser,
+  }) async {
+    return _makeRequest<T>(
+      'PUT',
+      endpoint,
+      headers: headers,
+      body: body,
+      parser: parser,
+    );
+  }
+  
+  Future<ApiResponse<T>> delete<T>(
+    String endpoint, {
+    Map<String, String>? headers,
+    T Function(Map<String, dynamic>)? parser,
+  }) async {
+    return _makeRequest<T>(
+      'DELETE',
+      endpoint,
+      headers: headers,
+      parser: parser,
+    );
+  }
+  
+  Future<ApiResponse<T>> _makeRequest<T>(
+    String method,
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? body,
+    T Function(Map<String, dynamic>)? parser,
+  }) async {
+    var uri = _buildUri(endpoint, queryParams);
+    var requestHeaders = {..._defaultHeaders, ...?headers};
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        var client = HttpClient();
+        var request = await client.openUrl(method, uri);
+        
+        requestHeaders.forEach((key, value) {
+          request.headers.set(key, value);
+        });
+        
+        if (body != null) {
+          var jsonBody = jsonEncode(body);
+          request.write(jsonBody);
+        }
+        
+        var response = await request.close().timeout(timeout);
+        var responseBody = await response.transform(utf8.decoder).join();
+        
+        client.close();
+        
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          var data = responseBody.isNotEmpty ? jsonDecode(responseBody) : null;
+          
+          T? parsedData;
+          if (data != null && parser != null) {
+            parsedData = parser(data as Map<String, dynamic>);
+          }
+          
+          return ApiResponse<T>.success(
+            data: parsedData,
+            statusCode: response.statusCode,
+            headers: _parseHeaders(response.headers),
+            rawData: data,
+          );
+        } else {
+          var errorData = responseBody.isNotEmpty ? jsonDecode(responseBody) : null;
+          return ApiResponse<T>.error(
+            message: 'HTTP ${response.statusCode}',
+            statusCode: response.statusCode,
+            errorData: errorData,
+          );
+        }
+      } catch (e) {
+        if (attempt == maxRetries) {
+          return ApiResponse<T>.error(
+            message: 'Request failed after $maxRetries attempts: $e',
+            exception: e,
+          );
+        }
+        
+        // Exponential backoff
+        await Future.delayed(Duration(milliseconds: 100 * (1 << (attempt - 1))));
+      }
+    }
+    
+    throw StateError('Should not reach here');
+  }
+  
+  Uri _buildUri(String endpoint, Map<String, dynamic>? queryParams) {
+    var url = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    url += endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+    
+    if (queryParams != null && queryParams.isNotEmpty) {
+      var queryString = queryParams.entries
+          .map((e) => '${e.key}=${Uri.encodeComponent(e.value.toString())}')
+          .join('&');
+      url += '?$queryString';
+    }
+    
+    return Uri.parse(url);
+  }
+  
+  Map<String, String> _parseHeaders(HttpHeaders headers) {
+    var result = <String, String>{};
+    headers.forEach((name, values) {
+      result[name] = values.join(', ');
+    });
+    return result;
+  }
+}
+
+class ApiResponse<T> {
+  final bool isSuccess;
+  final T? data;
+  final String? message;
+  final int? statusCode;
+  final Map<String, String>? headers;
+  final dynamic rawData;
+  final dynamic errorData;
+  final dynamic exception;
+  
+  ApiResponse._({
+    required this.isSuccess,
+    this.data,
+    this.message,
+    this.statusCode,
+    this.headers,
+    this.rawData,
+    this.errorData,
+    this.exception,
+  });
+  
+  factory ApiResponse.success({
+    T? data,
+    required int statusCode,
+    Map<String, String>? headers,
+    dynamic rawData,
+  }) {
+    return ApiResponse._(
+      isSuccess: true,
+      data: data,
+      statusCode: statusCode,
+      headers: headers,
+      rawData: rawData,
+    );
+  }
+  
+  factory ApiResponse.error({
+    required String message,
+    int? statusCode,
+    dynamic errorData,
+    dynamic exception,
+  }) {
+    return ApiResponse._(
+      isSuccess: false,
+      message: message,
+      statusCode: statusCode,
+      errorData: errorData,
+      exception: exception,
+    );
+  }
+  
+  @override
+  String toString() {
+    if (isSuccess) {
+      return 'ApiResponse.success(data: $data, statusCode: $statusCode)';
+    } else {
+      return 'ApiResponse.error(message: $message, statusCode: $statusCode)';
+    }
+  }
+}
+
+// Repository Pattern with HTTP Client
+abstract class Repository<T, ID> {
+  Future<ApiResponse<List<T>>> findAll();
+  Future<ApiResponse<T?>> findById(ID id);
+  Future<ApiResponse<T>> create(T entity);
+  Future<ApiResponse<T>> update(ID id, T entity);
+  Future<ApiResponse<void>> delete(ID id);
+}
+
+class UserRepository implements Repository<User, String> {
+  final HttpClient _httpClient;
+  
+  UserRepository(this._httpClient);
+  
+  @override
+  Future<ApiResponse<List<User>>> findAll() async {
+    var response = await _httpClient.get<List<User>>(
+      'users',
+      parser: (data) {
+        var usersList = data['users'] as List;
+        return usersList.map((json) => User.fromJson(json)).toList();
+      },
+    );
+    
+    if (response.isSuccess && response.rawData != null) {
+      var usersList = response.rawData['users'] as List;
+      var users = usersList.map((json) => User.fromJson(json)).toList();
+      return ApiResponse.success(data: users, statusCode: response.statusCode!);
+    }
+    
+    return ApiResponse.error(message: response.message ?? 'Failed to fetch users');
+  }
+  
+  @override
+  Future<ApiResponse<User?>> findById(String id) async {
+    var response = await _httpClient.get<User>(
+      'users/$id',
+      parser: (data) => User.fromJson(data),
+    );
+    
+    if (response.isSuccess) {
+      return response;
+    }
+    
+    if (response.statusCode == 404) {
+      return ApiResponse.success(data: null, statusCode: response.statusCode!);
+    }
+    
+    return ApiResponse.error(message: response.message ?? 'Failed to fetch user');
+  }
+  
+  @override
+  Future<ApiResponse<User>> create(User entity) async {
+    return await _httpClient.post<User>(
+      'users',
+      body: entity.toJson(),
+      parser: (data) => User.fromJson(data),
+    );
+  }
+  
+  @override
+  Future<ApiResponse<User>> update(String id, User entity) async {
+    return await _httpClient.put<User>(
+      'users/$id',
+      body: entity.toJson(),
+      parser: (data) => User.fromJson(data),
+    );
+  }
+  
+  @override
+  Future<ApiResponse<void>> delete(String id) async {
+    var response = await _httpClient.delete('users/$id');
+    return ApiResponse<void>.success(statusCode: response.statusCode!);
+  }
+}
+
+// User model with serialization
+class User {
+  final String id;
+  final String name;
+  final String email;
+  final DateTime? createdAt;
+  
+  User(this.id, this.name, {this.email = '', this.createdAt});
+  
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      json['id'] as String,
+      json['name'] as String,
+      email: json['email'] as String? ?? '',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+    };
+  }
+  
+  User copyWith({
+    String? id,
+    String? name,
+    String? email,
+    DateTime? createdAt,
+  }) {
+    return User(
+      id ?? this.id,
+      name ?? this.name,
+      email: email ?? this.email,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+  
+  @override
+  String toString() => 'User(id: $id, name: $name, email: $email)';
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is User && other.id == id;
+  }
+  
+  @override
+  int get hashCode => id.hashCode;
+}
+```
+
+### 10.2 WebSocket e Real-time Communication
+
+```dart
+import 'dart:convert';
+import 'dart:io';
+
+class WebSocketManager {
+  WebSocket? _webSocket;
+  final String url;
+  final Duration reconnectInterval;
+  final int maxReconnectAttempts;
+  
+  late StreamController<dynamic> _messageController;
+  late StreamController<WebSocketState> _stateController;
+  
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  bool _isDisposed = false;
+  
+  WebSocketManager({
+    required this.url,
+    this.reconnectInterval = const Duration(seconds: 5),
+    this.maxReconnectAttempts = 5,
+  }) {
+    _messageController = StreamController<dynamic>.broadcast();
+    _stateController = StreamController<WebSocketState>.broadcast();
+  }
+  
+  Stream<dynamic> get messages => _messageController.stream;
+  Stream<WebSocketState> get state => _stateController.stream;
+  
+  WebSocketState get currentState {
+    if (_webSocket == null) return WebSocketState.disconnected;
+    
+    switch (_webSocket!.readyState) {
+      case WebSocket.connecting:
+        return WebSocketState.connecting;
+      case WebSocket.open:
+        return WebSocketState.connected;
+      case WebSocket.closing:
+        return WebSocketState.disconnecting;
+      case WebSocket.closed:
+        return WebSocketState.disconnected;
+      default:
+        return WebSocketState.disconnected;
+    }
+  }
+  
+  Future<void> connect() async {
+    if (_isDisposed) return;
+    
+    try {
+      _stateController.add(WebSocketState.connecting);
+      
+      _webSocket = await WebSocket.connect(url);
+      _reconnectAttempts = 0;
+      
+      _stateController.add(WebSocketState.connected);
+      
+      _webSocket!.listen(
+        _onMessage,
+        onError: _onError,
+        onDone: _onDone,
+        cancelOnError: false,
+      );
+      
+    } catch (e) {
+      _stateController.add(WebSocketState.disconnected);
+      _scheduleReconnect();
+    }
+  }
+  
+  void send(dynamic message) {
+    if (currentState == WebSocketState.connected) {
+      var jsonMessage = message is String ? message : jsonEncode(message);
+      _webSocket!.add(jsonMessage);
+    } else {
+      throw StateError('WebSocket is not connected');
+    }
+  }
+  
+  void _onMessage(dynamic message) {
+    try {
+      var data = message is String ? jsonDecode(message) : message;
+      _messageController.add(data);
+    } catch (e) {
+      _messageController.add(message);
+    }
+  }
+  
+  void _onError(dynamic error) {
+    print('WebSocket error: $error');
+    _scheduleReconnect();
+  }
+  
+  void _onDone() {
+    _stateController.add(WebSocketState.disconnected);
+    _scheduleReconnect();
+  }
+  
+  void _scheduleReconnect() {
+    if (_isDisposed || _reconnectAttempts >= maxReconnectAttempts) {
+      return;
+    }
+    
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(reconnectInterval, () {
+      _reconnectAttempts++;
+      connect();
+    });
+  }
+  
+  Future<void> disconnect() async {
+    _reconnectTimer?.cancel();
+    
+    if (_webSocket != null) {
+      _stateController.add(WebSocketState.disconnecting);
+      await _webSocket!.close();
+      _webSocket = null;
+    }
+    
+    _stateController.add(WebSocketState.disconnected);
+  }
+  
+  void dispose() {
+    _isDisposed = true;
+    _reconnectTimer?.cancel();
+    disconnect();
+    _messageController.close();
+    _stateController.close();
+  }
+}
+
+enum WebSocketState {
+  disconnected,
+  connecting,
+  connected,
+  disconnecting,
+}
+
+// Real-time Chat Example
+class ChatManager {
+  final WebSocketManager _webSocketManager;
+  late StreamController<ChatMessage> _messageController;
+  late StreamController<List<ChatUser>> _usersController;
+  
+  final List<ChatMessage> _messages = [];
+  final List<ChatUser> _users = [];
+  
+  ChatManager(String serverUrl) 
+      : _webSocketManager = WebSocketManager(url: serverUrl) {
+    _messageController = StreamController<ChatMessage>.broadcast();
+    _usersController = StreamController<List<ChatUser>>.broadcast();
+    
+    _setupMessageHandling();
+  }
+  
+  Stream<ChatMessage> get messages => _messageController.stream;
+  Stream<List<ChatUser>> get users => _usersController.stream;
+  Stream<WebSocketState> get connectionState => _webSocketManager.state;
+  
+  List<ChatMessage> get messageHistory => List.unmodifiable(_messages);
+  List<ChatUser> get userList => List.unmodifiable(_users);
+  
+  void _setupMessageHandling() {
+    _webSocketManager.messages.listen((data) {
+      if (data is Map<String, dynamic>) {
+        switch (data['type']) {
+          case 'message':
+            _handleChatMessage(data);
+            break;
+          case 'user_joined':
+            _handleUserJoined(data);
+            break;
+          case 'user_left':
+            _handleUserLeft(data);
+            break;
+          case 'users_list':
+            _handleUsersList(data);
+            break;
+        }
+      }
+    });
+  }
+  
+  void _handleChatMessage(Map<String, dynamic> data) {
+    var message = ChatMessage.fromJson(data);
+    _messages.add(message);
+    _messageController.add(message);
+  }
+  
+  void _handleUserJoined(Map<String, dynamic> data) {
+    var user = ChatUser.fromJson(data['user']);
+    _users.add(user);
+    _usersController.add(List.from(_users));
+  }
+  
+  void _handleUserLeft(Map<String, dynamic> data) {
+    var userId = data['userId'] as String;
+    _users.removeWhere((user) => user.id == userId);
+    _usersController.add(List.from(_users));
+  }
+  
+  void _handleUsersList(Map<String, dynamic> data) {
+    var userList = (data['users'] as List)
+        .map((json) => ChatUser.fromJson(json))
+        .toList();
+    _users.clear();
+    _users.addAll(userList);
+    _usersController.add(List.from(_users));
+  }
+  
+  Future<void> connect() async {
+    await _webSocketManager.connect();
+  }
+  
+  void sendMessage(String text, String userId) {
+    _webSocketManager.send({
+      'type': 'message',
+      'text': text,
+      'userId': userId,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+  
+  void joinRoom(String roomId, String userId, String username) {
+    _webSocketManager.send({
+      'type': 'join_room',
+      'roomId': roomId,
+      'userId': userId,
+      'username': username,
+    });
+  }
+  
+  void leaveRoom(String roomId, String userId) {
+    _webSocketManager.send({
+      'type': 'leave_room',
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+  
+  Future<void> disconnect() async {
+    await _webSocketManager.disconnect();
+  }
+  
+  void dispose() {
+    _webSocketManager.dispose();
+    _messageController.close();
+    _usersController.close();
+  }
+}
+
+class ChatMessage {
+  final String id;
+  final String text;
+  final String userId;
+  final String username;
+  final DateTime timestamp;
+  
+  ChatMessage({
+    required this.id,
+    required this.text,
+    required this.userId,
+    required this.username,
+    required this.timestamp,
+  });
+  
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] as String,
+      text: json['text'] as String,
+      userId: json['userId'] as String,
+      username: json['username'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'userId': userId,
+      'username': username,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+  
+  @override
+  String toString() => '[$username]: $text';
+}
+
+class ChatUser {
+  final String id;
+  final String username;
+  final bool isOnline;
+  
+  ChatUser({
+    required this.id,
+    required this.username,
+    this.isOnline = true,
+  });
+  
+  factory ChatUser.fromJson(Map<String, dynamic> json) {
+    return ChatUser(
+      id: json['id'] as String,
+      username: json['username'] as String,
+      isOnline: json['isOnline'] as bool? ?? true,
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'isOnline': isOnline,
+    };
+  }
+  
+  @override
+  String toString() => username;
+}
+```
+
+## 11. Desenvolvimento de Packages e Bibliotecas
+
+### 11.1 Estrutura de Package
+
+```dart
+// pubspec.yaml structure exemplo:
+/*
+name: my_awesome_package
+description: An awesome Dart package that does amazing things.
+version: 1.0.0
+homepage: https://github.com/user/my_awesome_package
+
+environment:
+  sdk: '>=2.18.0 <4.0.0'
+
+dependencies:
+  meta: ^1.8.0
+
+dev_dependencies:
+  test: ^1.21.0
+  lints: ^2.0.0
+
+topics:
+  - utilities
+  - helper
+  - tools
+*/
+
+// lib/my_awesome_package.dart - Main export file
+library my_awesome_package;
+
+export 'src/core/awesome_class.dart';
+export 'src/utilities/helper_functions.dart';
+export 'src/models/data_models.dart';
+
+// Conditional exports for different platforms
+export 'src/io_implementation.dart' if (dart.library.html) 'src/web_implementation.dart';
+
+// lib/src/core/awesome_class.dart
+import 'package:meta/meta.dart';
+
+/// Uma classe incrível que demonstra boas práticas de desenvolvimento.
+/// 
+/// Esta classe serve como exemplo de como estruturar código em packages,
+/// incluindo documentação, testes e versionamento semântico.
+/// 
+/// Exemplo de uso:
+/// ```dart
+/// var awesome = AwesomeClass('Hello');
+/// print(awesome.process()); // Hello - processed
+/// ```
+@immutable
+class AwesomeClass {
+  /// O valor base que será processado.
+  final String value;
+  
+  /// Cria uma instância de [AwesomeClass] com o [value] fornecido.
+  /// 
+  /// O [value] não pode ser vazio.
+  /// 
+  /// Throws [ArgumentError] se [value] estiver vazio.
+  const AwesomeClass(this.value) : assert(value != '', 'Value cannot be empty');
+  
+  /// Processa o valor e retorna uma string formatada.
+  /// 
+  /// Este método adiciona um sufixo " - processed" ao valor original.
+  /// 
+  /// Returns: Uma string contendo o valor original seguido de " - processed".
+  String process() {
+    return '$value - processed';
+  }
+  
+  /// Processa o valor de forma assíncrona.
+  /// 
+  /// Simula uma operação que demora um tempo para completar.
+  /// 
+  /// [delay] especifica quanto tempo aguardar antes de processar.
+  /// 
+  /// Returns: Um [Future] que resolve para a string processada.
+  Future<String> processAsync({Duration delay = const Duration(milliseconds: 100)}) async {
+    await Future.delayed(delay);
+    return process();
+  }
+  
+  /// Processa múltiplos valores em batch.
+  /// 
+  /// [values] é uma lista de strings para processar.
+  /// [batchSize] especifica quantos itens processar por vez.
+  /// 
+  /// Returns: Um [Stream] de strings processadas.
+  Stream<String> processBatch(
+    List<String> values, {
+    int batchSize = 10,
+  }) async* {
+    for (int i = 0; i < values.length; i += batchSize) {
+      var batch = values.skip(i).take(batchSize);
+      for (var value in batch) {
+        var processor = AwesomeClass(value);
+        yield await processor.processAsync();
+      }
+    }
+  }
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AwesomeClass && other.value == value;
+  }
+  
+  @override
+  int get hashCode => value.hashCode;
+  
+  @override
+  String toString() => 'AwesomeClass(value: $value)';
+}
+
+// lib/src/utilities/helper_functions.dart
+
+/// Utilitários para manipulação de strings.
+class StringUtils {
+  StringUtils._(); // Private constructor para classe utilitária
+  
+  /// Converte uma string para title case.
+  /// 
+  /// Exemplo: "hello world" -> "Hello World"
+  static String toTitleCase(String input) {
+    if (input.isEmpty) return input;
+    
+    return input
+        .split(' ')
+        .map((word) => word.isEmpty 
+            ? word 
+            : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+  
+  /// Remove acentos de uma string.
+  /// 
+  /// Exemplo: "João" -> "Joao"
+  static String removeAccents(String input) {
+    const accents = {
+      'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
+      'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+      'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+      'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
+      'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+      'ç': 'c', 'ñ': 'n',
+      // Maiúsculas
+      'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
+      'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+      'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+      'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
+      'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U',
+      'Ç': 'C', 'Ñ': 'N',
+    };
+    
+    var result = input;
+    accents.forEach((accented, plain) {
+      result = result.replaceAll(accented, plain);
+    });
+    
+    return result;
+  }
+  
+  /// Trunca uma string para um comprimento máximo.
+  /// 
+  /// [maxLength] o comprimento máximo permitido.
+  /// [ellipsis] o que adicionar no final se a string for truncada.
+  static String truncate(String input, int maxLength, {String ellipsis = '...'}) {
+    if (input.length <= maxLength) return input;
+    
+    var truncateLength = maxLength - ellipsis.length;
+    if (truncateLength <= 0) return ellipsis.substring(0, maxLength);
+    
+    return '${input.substring(0, truncateLength)}$ellipsis';
+  }
+  
+  /// Conta palavras em uma string.
+  static int wordCount(String input) {
+    return input.trim().isEmpty 
+        ? 0 
+        : input.trim().split(RegExp(r'\s+')).length;
+  }
+}
+
+/// Utilitários para validação.
+class ValidationUtils {
+  ValidationUtils._();
+  
+  /// Valida se uma string é um email válido.
+  static bool isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,},
+    );
+    return emailRegex.hasMatch(email);
+  }
+  
+  /// Valida se uma string é um CPF válido.
+  static bool isValidCPF(String cpf) {
+    // Remove formatação
+    var cleanCPF = cpf.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Verifica se tem 11 dígitos
+    if (cleanCPF.length != 11) return false;
+    
+    // Verifica se não são todos iguais (ex: 111.111.111-11)
+    if (RegExp(r'^(\d)\1{10}).hasMatch(cleanCPF)) return false;
+    
+    // Calcula primeiro dígito verificador
+    var sum = 0;
+    for (int i = 0; i < 9; i++) {
+      sum += int.parse(cleanCPF[i]) * (10 - i);
+    }
+    var firstDigit = 11 - (sum % 11);
+    if (firstDigit >= 10) firstDigit = 0;
+    
+    // Calcula segundo dígito verificador
+    sum = 0;
+    for (int i = 0; i < 10; i++) {
+      sum += int.parse(cleanCPF[i]) * (11 - i);
+    }
+    var secondDigit = 11 - (sum % 11);
+    if (secondDigit >= 10) secondDigit = 0;
+    
+    // Verifica se os dígitos calculados coincidem com os informados
+    return int.parse(cleanCPF[9]) == firstDigit && 
+           int.parse(cleanCPF[10]) == secondDigit;
+  }
+  
+  /// Valida se uma string é um URL válido.
+  static bool isValidUrl(String url) {
+    try {
+      var uri = Uri.parse(url);
+      return uri.hasScheme && uri.hasAuthority;
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  /// Valida força de senha.
+  /// 
+  /// Returns um [PasswordStrength] indicando a força da senha.
+  static PasswordStrength getPasswordStrength(String password) {
+    if (password.length < 6) return PasswordStrength.weak;
+    
+    var hasUpper = password.contains(RegExp(r'[A-Z]'));
+    var hasLower = password.contains(RegExp(r'[a-z]'));
+    var hasDigit = password.contains(RegExp(r'[0-9]'));
+    var hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+    
+    var criteriaCount = [hasUpper, hasLower, hasDigit, hasSpecial]
+        .where((criteria) => criteria)
+        .length;
+    
+    if (password.length >= 12 && criteriaCount >= 3) {
+      return PasswordStrength.strong;
+    } else if (password.length >= 8 && criteriaCount >= 2) {
+      return PasswordStrength.medium;
+    } else {
+      return PasswordStrength.weak;
+    }
+  }
+}
+
+enum PasswordStrength {
+  weak,
+  medium,
+  strong,
+}
+
+// lib/src/models/data_models.dart
+
+/// Modelo base para objetos que possuem ID.
+abstract class Identifiable {
+  String get id;
+}
+
+/// Modelo base para objetos com timestamp.
+abstract class Timestamped {
+  DateTime get createdAt;
+  DateTime? get updatedAt;
+}
+
+/// Modelo de resposta paginada.
+/// 
+/// Usado para representar respostas de API que retornam dados paginados.
+class PaginatedResponse<T> {
+  /// Os itens da página atual.
+  final List<T> items;
+  
+  /// Número total de itens disponíveis.
+  final int totalCount;
+  
+  /// Número da página atual (baseado em 1).
+  final int currentPage;
+  
+  /// Número total de páginas.
+  final int totalPages;
+  
+  /// Número de itens por página.
+  final int pageSize;
+  
+  /// Se existe uma próxima página.
+  final bool hasNext;
+  
+  /// Se existe uma página anterior.
+  final bool hasPrevious;
+  
+  const PaginatedResponse({
+    required this.items,
+    required this.totalCount,
+    required this.currentPage,
+    required this.totalPages,
+    required this.pageSize,
+    required this.hasNext,
+    required this.hasPrevious,
+  });
+  
+  /// Cria uma instância de [PaginatedResponse] calculando automaticamente
+  /// os campos derivados.
+  factory PaginatedResponse.create({
+    required List<T> items,
+    required int totalCount,
+    required int currentPage,
+    required int pageSize,
+  }) {
+    var totalPages = (totalCount / pageSize).ceil();
+    
+    return PaginatedResponse(
+      items: items,
+      totalCount: totalCount,
+      currentPage: currentPage,
+      totalPages: totalPages,
+      pageSize: pageSize,
+      hasNext: currentPage < totalPages,
+      hasPrevious: currentPage > 1,
+    );
+  }
+  
+  /// Converte para JSON.
+  Map<String, dynamic> toJson(Map<String, dynamic> Function(T) itemToJson) {
+    return {
+      'items': items.map(itemToJson).toList(),
+      'totalCount': totalCount,
+      'currentPage': currentPage,
+      'totalPages': totalPages,
+      'pageSize': pageSize,
+      'hasNext': hasNext,
+      'hasPrevious': hasPrevious,
+    };
+  }
+  
+  /// Cria uma instância a partir de JSON.
+  factory PaginatedResponse.fromJson(
+    Map<String, dynamic> json,
+    T Function(Map<String, dynamic>) itemFromJson,
+  ) {
+    return PaginatedResponse(
+      items: (json['items'] as List)
+          .map((item) => itemFromJson(item as Map<String, dynamic>))
+          .toList(),
+      totalCount: json['totalCount'] as int,
+      currentPage: json['currentPage'] as int,
+      totalPages: json['totalPages'] as int,
+      pageSize: json['pageSize'] as int,
+      hasNext: json['hasNext'] as bool,
+      hasPrevious: json['hasPrevious'] as bool,
+    );
+  }
+  
+  @override
+  String toString() {
+    return 'PaginatedResponse(page: $currentPage/$totalPages, items: ${items.length}/$totalCount)';
+  }
+}
+
+/// Configuração de cache.
+class CacheConfig {
+  /// Duração padrão do cache.
+  final Duration defaultTtl;
+  
+  /// Tamanho máximo do cache em número de entradas.
+  final int maxSize;
+  
+  /// Se deve fazer cleanup automático de entradas expiradas.
+  final bool autoCleanup;
+  
+  /// Intervalo do cleanup automático.
+  final Duration cleanupInterval;
+  
+  const CacheConfig({
+    this.defaultTtl = const Duration(minutes: 30),
+    this.maxSize = 1000,
+    this.autoCleanup = true,
+    this.cleanupInterval = const Duration(minutes: 5),
+  });
+}
+
+// lib/src/cache/memory_cache.dart
+
+/// Cache em memória com TTL e LRU eviction.
+class MemoryCache<K, V> {
+  final CacheConfig _config;
+  final Map<K, _CacheEntry<V>> _cache = {};
+  final LinkedList<_CacheNode<K>> _accessOrder = LinkedList<_CacheNode<K>>();
+  Timer? _cleanupTimer;
+  
+  MemoryCache([CacheConfig? config]) : _config = config ?? const CacheConfig() {
+    if (_config.autoCleanup) {
+      _startCleanupTimer();
+    }
+  }
+  
+  /// Obtém um valor do cache.
+  /// 
+  /// Returns o valor se estiver presente e não expirado, caso contrário null.
+  V? get(K key) {
+    var entry = _cache[key];
+    if (entry == null || entry.isExpired) {
+      if (entry != null) {
+        _removeEntry(key);
+      }
+      return null;
+    }
+    
+    _updateAccessOrder(key);
+    return entry.value;
+  }
+  
+  /// Adiciona um valor ao cache.
+  /// 
+  /// [ttl] especifica o time-to-live para esta entrada específica.
+  /// Se não fornecido, usa o TTL padrão da configuração.
+  void put(K key, V value, {Duration? ttl}) {
+    // Remove entrada existente se houver
+    if (_cache.containsKey(key)) {
+      _removeEntry(key);
+    }
+    
+    // Verifica se precisa fazer eviction
+    if (_cache.length >= _config.maxSize) {
+      _evictLeastRecentlyUsed();
+    }
+    
+    var expirationTime = DateTime.now().add(ttl ?? _config.defaultTtl);
+    _cache[key] = _CacheEntry(value, expirationTime);
+    _updateAccessOrder(key);
+  }
+  
+  /// Remove uma entrada do cache.
+  bool remove(K key) {
+    return _removeEntry(key);
+  }
+  
+  /// Limpa todo o cache.
+  void clear() {
+    _cache.clear();
+    _accessOrder.clear();
+  }
+  
+  /// Retorna o número de entradas no cache.
+  int get size => _cache.length;
+  
+  /// Verifica se o cache está vazio.
+  bool get isEmpty => _cache.isEmpty;
+  
+  /// Verifica se o cache contém uma chave.
+  bool containsKey(K key) {
+    var entry = _cache[key];
+    if (entry == null || entry.isExpired) {
+      if (entry != null) {
+        _removeEntry(key);
+      }
+      return false;
+    }
+    return true;
+  }
+  
+  /// Remove entradas expiradas manualmente.
+  void cleanup() {
+    var expiredKeys = <K>[];
+    
+    _cache.forEach((key, entry) {
+      if (entry.isExpired) {
+        expiredKeys.add(key);
+      }
+    });
+    
+    for (var key in expiredKeys) {
+      _removeEntry(key);
+    }
+  }
+  
+  /// Obtém estatísticas do cache.
+  CacheStats getStats() {
+    var expiredCount = _cache.values.where((entry) => entry.isExpired).length;
+    
+    return CacheStats(
+      totalEntries: _cache.length,
+      expiredEntries: expiredCount,
+      activeEntries: _cache.length - expiredCount,
+      maxSize: _config.maxSize,
+    );
+  }
+  
+  void _updateAccessOrder(K key) {
+    // Remove da posição atual se existir
+    _accessOrder.where((node) => node.key == key).forEach((node) => node.unlink());
+    
+    // Adiciona no final (mais recente)
+    _accessOrder.add(_CacheNode(key));
+  }
+  
+  bool _removeEntry(K key) {
+    var removed = _cache.remove(key) != null;
+    if (removed) {
+      _accessOrder.where((node) => node.key == key).forEach((node) => node.unlink());
+    }
+    return removed;
+  }
+  
+  void _evictLeastRecentlyUsed() {
+    if (_accessOrder.isNotEmpty) {
+      var lruKey = _accessOrder.first.key;
+      _removeEntry(lruKey);
+    }
+  }
+  
+  void _startCleanupTimer() {
+    _cleanupTimer = Timer.periodic(_config.cleanupInterval, (_) {
+      cleanup();
+    });
+  }
+  
+  /// Dispose do cache, cancelando timers e limpando dados.
+  void dispose() {
+    _cleanupTimer?.cancel();
+    clear();
+  }
+}
+
+class _CacheEntry<V> {
+  final V value;
+  final DateTime expirationTime;
+  
+  _CacheEntry(this.value, this.expirationTime);
+  
+  bool get isExpired => DateTime.now().isAfter(expirationTime);
+}
+
+class _CacheNode<K> extends LinkedListEntry<_CacheNode<K>> {
+  final K key;
+  
+  _CacheNode(this.key);
+}
+
+/// Estatísticas do cache.
+class CacheStats {
+  final int totalEntries;
+  final int expiredEntries;
+  final int activeEntries;
+  final int maxSize;
+  
+  const CacheStats({
+    required this.totalEntries,
+    required this.expiredEntries,
+    required this.activeEntries,
+    required this.maxSize,
+  });
+  
+  double get hitRatio {
+    return totalEntries > 0 ? activeEntries / totalEntries : 0.0;
+  }
+  
+  double get fillRatio {
+    return maxSize > 0 ? totalEntries / maxSize : 0.0;
+  }
+  
+  @override
+  String toString() {
+    return 'CacheStats(total: $totalEntries, active: $activeEntries, '
+           'expired: $expiredEntries, hit ratio: ${(hitRatio * 100).toStringAsFixed(1)}%, '
+           'fill ratio: ${(fillRatio * 100).toStringAsFixed(1)}%)';
+  }
+}
+```
+
+### 11.2 Testing do Package
+
+```dart
+// test/awesome_class_test.dart
+import 'package:test/test.dart';
+import 'package:my_awesome_package/my_awesome_package.dart';
+
+void main() {
+  group('AwesomeClass', () {
+    test('should create instance with valid value', () {
+      var awesome = AwesomeClass('test');
+      expect(awesome.value, equals('test'));
+    });
+    
+    test('should throw assertion error for empty value', () {
+      expect(() => AwesomeClass(''), throwsA(isA<AssertionError>()));
+    });
+    
+    test('should process value correctly', () {
+      var awesome = AwesomeClass('hello');
+      expect(awesome.process(), equals('hello - processed'));
+    });
+    
+    test('should process value asynchronously', () async {
+      var awesome = AwesomeClass('async');
+      var result = await awesome.processAsync();
+      expect(result, equals('async - processed'));
+    });
+    
+    test('should process batch of values', () async {
+      var awesome = AwesomeClass('batch');
+      var values = ['item1', 'item2', 'item3'];
+      
+      var results = <String>[];
+      await for (var result in awesome.processBatch(values)) {
+        results.add(result);
+      }
+      
+      expect(results, hasLength(3));
+      expect(results[0], equals('item1 - processed'));
+      expect(results[1], equals('item2 - processed'));
+      expect(results[2], equals('item3 - processed'));
+    });
+    
+    test('should handle equality correctly', () {
+      var awesome1 = AwesomeClass('test');
+      var awesome2 = AwesomeClass('test');
+      var awesome3 = AwesomeClass('different');
+      
+      expect(awesome1, equals(awesome2));
+      expect(awesome1, isNot(equals(awesome3)));
+    });
+    
+    test('should have consistent hashCode', () {
+      var awesome1 = AwesomeClass('test');
+      var awesome2 = AwesomeClass('test');
+      
+      expect(awesome1.hashCode, equals(awesome2.hashCode));
+    });
+  });
+  
+  group('StringUtils', () {
+    test('should convert to title case', () {
+      expect(StringUtils.toTitleCase('hello world'), equals('Hello World'));
+      expect(StringUtils.toTitleCase('HELLO WORLD'), equals('Hello World'));
+      expect(StringUtils.toTitleCase(''), equals(''));
+    });
+    
+    test('should remove accents', () {
+      expect(StringUtils.removeAccents('João'), equals('Joao'));
+      expect(StringUtils.removeAccents('São Paulo'), equals('Sao Paulo'));
+      expect(StringUtils.removeAccents('Coração'), equals('Coracao'));
+    });
+    
+    test('should truncate strings correctly', () {
+      expect(StringUtils.truncate('Hello World', 5), equals('He...'));
+      expect(StringUtils.truncate('Hi', 10), equals('Hi'));
+      expect(StringUtils.truncate('Test', 4), equals('Test'));
+    });
+    
+    test('should count words correctly', () {
+      expect(StringUtils.wordCount('Hello world'), equals(2));
+      expect(StringUtils.wordCount(''), equals(0));
+      expect(StringUtils.wordCount('   '), equals(0));
+      expect(StringUtils.wordCount('One'), equals(1));
+    });
+  });
+  
+  group('ValidationUtils', () {
+    test('should validate email addresses', () {
+      expect(ValidationUtils.isValidEmail('test@example.com'), isTrue);
+      expect(ValidationUtils.isValidEmail('invalid-email'), isFalse);
+      expect(ValidationUtils.isValidEmail('test@'), isFalse);
+      expect(ValidationUtils.isValidEmail('@example.com'), isFalse);
+    });
+    
+    test('should validate CPF', () {
+      expect(ValidationUtils.isValidCPF('123.456.789-09'), isTrue);
+      expect(ValidationUtils.isValidCPF('12345678909'), isTrue);
+      expect(ValidationUtils.isValidCPF('111.111.111-11'), isFalse);
+      expect(ValidationUtils.isValidCPF('123.456.789-00'), isFalse);
+    });
+    
+    test('should validate URLs', () {
+      expect(ValidationUtils.isValidUrl('https://example.com'), isTrue);
+      expect(ValidationUtils.isValidUrl('http://test.org'), isTrue);
+      expect(ValidationUtils.isValidUrl('not-a-url'), isFalse);
+      expect(ValidationUtils.isValidUrl('ftp://example.com'), isTrue);
+    });
+    
+    test('should evaluate password strength', () {
+      expect(ValidationUtils.getPasswordStrength('123'), equals(PasswordStrength.weak));
+      expect(ValidationUtils.getPasswordStrength('Password1'), equals(PasswordStrength.medium));
+      expect(ValidationUtils.getPasswordStrength('StrongP@ssw0rd!'), equals(PasswordStrength.strong));
+    });
+  });
+  
+  group('MemoryCache', () {
+    late MemoryCache<String, String> cache;
+    
+    setUp(() {
+      cache = MemoryCache<String, String>(
+        CacheConfig(
+          defaultTtl: Duration(milliseconds: 100),
+          maxSize: 3,
+          autoCleanup: false,
+        ),
+      );
+    });
+    
+    tearDown(() {
+      cache.dispose();
+    });
+    
+    test('should store and retrieve values', () {
+      cache.put('key1', 'value1');
+      expect(cache.get('key1'), equals('value1'));
+      expect(cache.size, equals(1));
+    });
+    
+    test('should return null for non-existent keys', () {
+      expect(cache.get('non-existent'), isNull);
+    });
+    
+    test('should handle expiration', () async {
+      cache.put('key1', 'value1');
+      expect(cache.get('key1'), equals('value1'));
+      
+      await Future.delayed(Duration(milliseconds: 150));
+      expect(cache.get('key1'), isNull);
+    });
+    
+    test('should evict least recently used items', () {
+      cache.put('key1', 'value1');
+      cache.put('key2', 'value2');
+      cache.put('key3', 'value3');
+      
+      // Access key1 to make it recently used
+      cache.get('key1');
+      
+      // Add key4, should evict key2 (least recently used)
+      cache.put('key4', 'value4');
+      
+      expect(cache.get('key1'), equals('value1'));
+      expect(cache.get('key2'), isNull);
+      expect(cache.get('key3'), equals('value3'));
+      expect(cache.get('key4'), equals('value4'));
+    });
+    
+    test('should remove entries', () {
+      cache.put('key1', 'value1');
+      expect(cache.remove('key1'), isTrue);
+      expect(cache.get('key1'), isNull);
+      expect(cache.remove('non-existent'), isFalse);
+    });
+    
+    test('should clear all entries', () {
+      cache.put('key1', 'value1');
+      cache.put('key2', 'value2');
+      
+      cache.clear();
+      
+      expect(cache.size, equals(0));
+      expect(cache.isEmpty, isTrue);
+    });
+    
+    test('should provide accurate statistics', () {
+      cache.put('key1', 'value1');
+      cache.put('key2', 'value2');
+      
+      var stats = cache.getStats();
+      expect(stats.totalEntries, equals(2));
+      expect(stats.activeEntries, equals(2));
+      expect(stats.expiredEntries, equals(0));
+    });
+  });
+  
+  group('PaginatedResponse', () {
+    test('should create instance with calculated fields', () {
+      var response = PaginatedResponse<String>.create(
+        items: ['item1', 'item2'],
+        totalCount: 10,
+        currentPage: 2,
+        pageSize: 5,
+      );
+      
+      expect(response.items.length, equals(2));
+      expect(response.totalPages, equals(2));
+      expect(response.hasNext, isFalse);
+      expect(response.hasPrevious, isTrue);
+    });
+    
+    test('should serialize to and from JSON', () {
+      var original = PaginatedResponse<Map<String, dynamic>>.create(
+        items: [{'id': 1, 'name': 'Test'}],
+        totalCount: 1,
+        currentPage: 1,
+        pageSize: 10,
+      );
+      
+      var json = original.toJson((item) => item);
+      var restored = PaginatedResponse<Map<String, dynamic>>.fromJson(
+        json,
+        (json) => json,
+      );
+      
+      expect(restored.items.length, equals(original.items.length));
+      expect(restored.totalCount, equals(original.totalCount));
+      expect(restored.currentPage, equals(original.currentPage));
+    });
+  });
+}
+
+// test/integration_test.dart
+import 'package:test/test.dart';
+import 'package:my_awesome_package/my_awesome_package.dart';
+
+void main() {
+  group('Integration Tests', () {
+    test('should work with real-world scenario', () async {
+      // Simula um cenário real usando múltiplas classes do package
+      var cache = MemoryCache<String, String>();
+      
+      // Processa alguns valores
+      var processor = AwesomeClass('integration test');
+      var processedValue = await processor.processAsync();
+      
+      // Armazena no cache
+      cache.put('processed', processedValue);
+      
+      // Valida email
+      var isValidEmail = ValidationUtils.isValidEmail('test@example.com');
+      
+      // Manipula string
+      var titleCase = StringUtils.toTitleCase(processedValue);
+      
+      // Verifica se tudo funcionou junto
+      expect(cache.get('processed'), equals('integration test - processed'));
+      expect(isValidEmail, isTrue);
+      expect(titleCase, equals('Integration Test - Processed'));
+      
+      cache.dispose();
+    });
+    
+    test('should handle batch processing with cache', () async {
+      var cache = MemoryCache<String, List<String>>();
+      var processor = AwesomeClass('batch');
+      
+      var inputValues = ['item1', 'item2', 'item3'];
+      var results = <String>[];
+      
+      await for (var result in processor.processBatch(inputValues, batchSize: 2)) {
+        results.add(result);
+      }
+      
+      cache.put('batch_results', results);
+      
+      var cachedResults = cache.get('batch_results');
+      expect(cachedResults, isNotNull);
+      expect(cachedResults!.length, equals(3));
+      expect(cachedResults.every((r) => r.endsWith(' - processed')), isTrue);
+      
+      cache.dispose();
+    });
+  });
+}
+```
